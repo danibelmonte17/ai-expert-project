@@ -1,0 +1,14 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "planner": {
+      "model": "devexpert/chat-pro"
+    },
+    "implementer": {
+      "model": "devexpert/chat"
+    },
+    "validator": {
+      "model": "devexpert/chat"
+    }
+  }
+}
