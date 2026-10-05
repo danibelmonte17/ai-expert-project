@@ -1,0 +1,4 @@
+interface:
+  display_name: "GitHub Flow"
+  short_description: "Orchestrate issues, worktrees, feature-flow and PRs."
+  default_prompt: "Use $github-flow with these feature ids: <ids>."
