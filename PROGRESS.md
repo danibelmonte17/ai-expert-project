@@ -6,9 +6,9 @@
 - Ruta estándar de arranque: `./init.sh`
 - Ruta estándar de verificación: `./init.sh` (gate: install + db:setup + lint + typecheck + test + build; asegura `.env`; no bloqueante, sin dev servers)
 - Arranque local: `pnpm dev`
-- Siguiente feature lista: `catalog-list` (prerequisito `bootstrap-seed` en `accepted`)
+- Siguiente feature lista: `catalog-filter` (prerequisito `catalog-list` en `accepted`); alternativas listas: `catalog-sort` y `product-detail` (mismo prerequisito)
 - Bloqueador actual: ninguno
-- Última verificación: `./init.sh` en verde (exit 0) en checkout limpio (sin `.env` ni `prisma/dev.db`), 2026-10-05
+- Última verificación: `catalog-list` en `accepted` (validación independiente `feature-validator` veredicto `accept`): `./init.sh` en verde, `pnpm test` 12/12, recorrido manual `/` HTTP 200 con 8 productos; 2026-10-05
 
 ## Registro de sesión
 
@@ -72,3 +72,26 @@
 - Riesgo o cuestión no resuelta: `@prisma/client` no resuelve `.env` de forma fiable cuando el cliente se genera antes de existir `.env` (checkout limpio); mitigado cargando `.env` explícitamente en el seed. La advertencia de Next sobre múltiples lockfiles proviene del árbol de worktrees, no de esta feature.
 - Estado: feature `bootstrap-seed` en `passing` (pendiente de validación independiente).
 - Siguiente mejor paso: validación independiente de `bootstrap-seed`; después, feature `catalog-list`.
+
+### Sesión 004 — `catalog-list`
+
+- Fecha: 2026-10-05
+- Objetivo: que la home (`/`) muestre el catálogo real (base Prisma) como cuadrícula responsive de tarjetas con imagen, nombre, categoría y precio; introducir la capa `src/lib` de acceso a datos.
+- Completado:
+  - Capa de datos: `src/lib/db.ts` (singleton `PrismaClient` con guard en `globalThis` para HMR), `src/lib/catalog.ts` (`getCatalogProducts`, `orderBy: { createdAt: "desc" }`, `include: { category: true }`; tipo `CatalogProduct` mínimo) y `src/lib/format.ts` (`formatPriceCents` con `Intl.NumberFormat("es-ES")`).
+  - Presentación: `src/components/ProductCard.tsx` (imagen `next/image unoptimized` con `alt` = nombre, `h2` nombre, categoría muted, precio formateado; sin enlaces ni badges) y `src/components/ProductGrid.tsx` + `ProductGrid.module.css` (`<ul>` grid 2/3/4 columnas en <640/≥640/≥1024 y estado vacío "No hay productos disponibles en este momento.").
+  - Estilos: `src/app/globals.css` (custom properties de `DESIGN.md` + tipografía base) importado desde `layout.tsx`. Sin Tailwind.
+  - Home: `src/app/page.tsx` ahora es server component `async` con `export const dynamic = "force-dynamic"`, `<main className="container">`, `h1` "Catálogo" y `ProductGrid`.
+  - Tests: `src/lib/catalog.test.ts` (integración node sobre base temporal `prisma/test-catalog.db`), `src/components/ProductGrid.test.tsx` (jsdom, 2 tests) y `src/app/page.test.tsx` adaptado (mock de `getCatalogProducts`).
+- Verificación ejecutada y evidencia:
+  - `pnpm test` -> exit 0; 12 tests en 4 archivos (catalog-list: 3 integración + 2 grid + 1 página; seed: 6 sin regresión).
+  - `pnpm lint` -> exit 0; `pnpm typecheck` -> exit 0.
+  - `pnpm build` -> exit 0; `/` marcada como dinámica (ƒ) por `force-dynamic`.
+  - `./init.sh` -> exit 0 (install + asegura `.env` + db:setup + lint + typecheck + test + build; sin dev servers).
+  - `pnpm db:setup` -> 3 categorías, 8 productos, 29 variantes.
+  - Manual `pnpm dev` + GET `/` -> HTTP 200: h1 "Catálogo", "Camiseta básica" · "Camisetas" · "19,99"; 8 imágenes `/images/products/*.svg`; 0 enlaces de producto; sin estado vacío con base poblada. Servidor detenido (0 procesos node).
+  - Responsive en CSS compilado: base `repeat(2, 1fr)`; `@media (min-width: 640px)` -> 3; `@media (min-width: 1024px)` -> 4.
+- Archivos o artefactos actualizados: `src/lib/{db,catalog,format}.ts`, `src/lib/catalog.test.ts`, `src/components/{ProductCard,ProductGrid}.tsx`, `src/components/ProductGrid.module.css`, `src/components/ProductGrid.test.tsx`, `src/app/globals.css`, `src/app/layout.tsx`, `src/app/page.tsx`, `src/app/page.test.tsx`, `ARCHITECTURE.md`, `CONSTRAINTS.md`, `feature_list.json`, `PROGRESS.md`.
+- Riesgo o cuestión no resuelta: E2E persistente no introducido (justificado en el spec: no existe `pnpm test:e2e`; superficie de solo lectura cubierta por integración + render). La afirmación de columnas por breakpoint se verifica sobre el CSS compilado (los media queries), no con un navegador real. `PROGRESS.md` conserva la "Raíz del repositorio" de otra máquina (dato heredado, fuera de alcance).
+- Estado: feature `catalog-list` en `accepted` (validación independiente vía `feature-validator`: veredicto `accept`; reverificó gate, base sembrada, `/` HTTP 200, CSS responsive y scope disciplinado).
+- Siguiente mejor paso: `catalog-filter`, `catalog-sort` o `product-detail` (prerequisito `catalog-list` ya `accepted`; reevaluar harness E2E en el primero con flujo interactivo).

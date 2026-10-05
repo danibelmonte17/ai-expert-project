@@ -69,13 +69,22 @@
     "title": "Listado de catálogo",
     "user_visible_behavior": "El usuario ve una cuadrícula responsive de productos con imagen, nombre, categoría y precio.",
     "depends_on": ["bootstrap-seed"],
-    "status": "not_started",
+    "status": "accepted",
     "verification": [
       "La página de catálogo lista los productos del seed con nombre, imagen, categoría y precio.",
       "La cuadrícula es responsive (1-2 columnas en móvil, 3-4 en escritorio)."
     ],
-    "evidence": [],
-    "notes": "Referencia visual: DESIGN.md (grid de 12 columnas, cards de producto). Sin filtros ni ordenación todavía (features siguientes)."
+    "evidence": [
+      "`pnpm test` -> exit 0; 12 tests en 4 archivos: src/lib/catalog.test.ts (3, integración node sobre base temporal prisma/test-catalog.db con `prisma migrate deploy` + seedCatalog: devuelve los 8 productos con nombre no vacío, imageUrl ^/images/products/.+/.svg$, categoría ∈ {Camisetas,Pantalones,Abrigos}, priceCents 1999-11999 y currency EUR; orden createdAt desc con primer slug camiseta-basica; categoría con slug/nombre), src/components/ProductGrid.test.tsx (2, jsdom: una tarjeta por producto con imagen alt=nombre, nombre h2, categoría y precio formateado 19,99 €/119,99 €; estado vacío amigable), src/app/page.test.tsx (1, mock de getCatalogProducts: h1 'Catálogo' + producto visible) y prisma/seed.test.ts (6, sin regresión).",
+      "`pnpm lint` -> exit 0; `pnpm typecheck` -> exit 0; `pnpm build` -> exit 0 (ruta `/` marcada como dinámica (ƒ) por `force-dynamic`; el build no depende de la base poblada).",
+      "`./init.sh` -> exit 0 (install + asegura .env + db:setup + lint + typecheck + test + build; sin arrancar dev servers).",
+      "`pnpm db:setup` -> 3 categorías, 8 productos, 29 variantes (precios 1999-11999 centavos).",
+      "Recorrido manual `pnpm dev` + GET http://localhost:3000/ -> HTTP 200: HTML con h1 'Catálogo', 'Camiseta básica', categoría 'Camisetas', precio '19,99', clase del CSS Module del grid y 8 imágenes de producto (`/images/products/*.svg`); 0 anclas de producto (tarjetas sin enlaces); estado vacío no presente (base poblada). Servidor detenido tras la comprobación (0 procesos node restantes).",
+      "Responsive verificado en el CSS compilado (`.next/static/css`): base `grid-template-columns: repeat(2, 1fr)`; `@media (min-width: 640px)` -> `repeat(3, 1fr)`; `@media (min-width: 1024px)` -> `repeat(4, 1fr)` (2 columnas móvil, 3 tableta, 4 escritorio).",
+      "Los 5 escenarios de aceptación cubiertos: (1) listado del seed con los 4 campos, (2) grid 2/3/4, (3) precio es-ES desde centavos, (4) estado vacío, (5) tests automatizados verdes.",
+      "Validación independiente (`feature-validator`, 2026-10-05): veredicto `accept`. Reverificó lint/typecheck/test (12/4) /build (ruta `/` dinámica) y `./init.sh` (gate completo, sin dev servers); levantó `pnpm dev` y comprobó GET / HTTP 200 (h1 'Catálogo', 8 tarjetas con nombre/imagen/categoría/precio, 0 anclas, estado vacío ausente, servidor detenido); inspeccionó el CSS compilado (2 -> 3 @640 -> 4 @1024 col.). Scope disciplinado (sin filtros/orden/detalle/enlaces/carrito/chatbot; sin churn de schema/seed/init.sh). Arquitectura y seguridad sin hallazgos bloqueantes (server-only, sin secretos ni entrada de usuario; DB por DATABASE_URL). Solo notas Low no bloqueantes (rutas antiguas en PROGRESS/ARCHITECTURE, `sizes` cosmético, import de CSS del grid en la card)."
+    ],
+    "notes": "Referencia visual: DESIGN.md (grid de 12 columnas, cards de producto). Sin filtros ni ordenación todavía (features siguientes). Introduce src/lib (db.ts singleton, catalog.ts getCatalogProducts, format.ts formatPriceCents), src/components (ProductCard, ProductGrid + CSS Module) y globals.css. Home = listado del catálogo en modo dinámico. Sin acoplamiento al nombre del fichero SQLite (usa DATABASE_URL). Sin E2E persistente (justificado en el spec: no existe `pnpm test:e2e`; superficie de solo lectura cubierta por integración + render; se reevalúa en catalog-filter/product-detail)."
   },
   {
     "id": "catalog-filter",
