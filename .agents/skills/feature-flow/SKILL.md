@@ -72,7 +72,6 @@ The agent name must match exactly: `planner`, `implementer`, `validator`.
 - In opencode, invoke via Task with `subagent_type` exactly `planner` / `implementer` / `validator` for the matching role. Never substitute `general`, `explore`, `plan`, or `build`.
 - Via `@` mention, use `@planner`, `@implementer`, `@validator` (not `@plan`).
 - Do NOT pass `model`, `variant`, `temperature`, or `top_p` overrides in the Task invocation. Omit those fields so each subagent uses its own configured `model` from `.opencode/agents/<name>.md`, which is the single source of truth. Any explicit model override makes the subagent ignore its own model and use the override / parent model instead.
-- This is required because opencode subagents without an explicit `model` inherit the parent primary's model by design. Expected mapping: `planner` -> `devexpert/chat-pro`, `implementer`/`validator` -> `devexpert/chat`.
 
 Send only dynamic handoff context:
 
