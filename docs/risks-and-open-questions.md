@@ -10,9 +10,9 @@
 
 - ¿Qué estados tiene un `Pedido` completo (enviado/entregado/devuelto) o basta con `Pagado`/`Cancelado`?
 - ¿El carrito debe persistir en servidor para usuarios y solo en localStorage para invitados?
-- ¿Dónde se guardan/almacenan las imágenes generadas del try-on (disco local vs URL temporal)?
-- ¿El chatbot guarda historial por sesión o por usuario?
-- ¿Cuántas variantes/tallas/colores por producto requiere el seed?
+- ¿Dónde se guardan/almacenan las imágenes generadas del try-on (disco local vs URL temporal)? **Decisión parcial (bootstrap-seed)**: el modelo `TryonImage` guarda solo referencias (`sourceRef`/`resultRef`, `String`), nunca blobs; el destino concreto (disco local vs URL temporal) se decide en `tryon-*`.
+- ¿El chatbot guarda historial por sesión o por usuario? **Decisión parcial (bootstrap-seed)**: `Chat` soporta ambos (`userId` o `guestId`) y guarda el historial como `String` JSON serializado; la política se decide en `chatbot-conversation`.
+- **Resuelto (bootstrap-seed)**: ¿Cuántas variantes/tallas/colores por producto requiere el seed? 3 categorías, 8 productos (3/3/2), 29 variantes (3–4 por producto), 4 tallas (S/M/L/XL), 4 colores (negro/blanco/azul/rojo), precios 19,99–119,99 €, al menos 2 variantes agotadas y al menos 2 productos 100% en stock. Ver `prisma/seed.ts`.
 
 ## Later / Not MVP
 

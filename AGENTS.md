@@ -28,8 +28,11 @@ Antes de escribir código:
 
 - Stack: Next.js (App Router) + TypeScript + SQLite (Prisma) + pnpm.
 - Arranque local: `pnpm dev`.
+- Base de datos: `pnpm db:setup` (migraciones + seed del catálogo en `prisma/dev.db`); seed en `prisma/seed.ts` (`pnpm db:seed`, idempotente).
 - Gate de verificación (ejecutado por `./init.sh`, no bloqueante y sin dev servers):
+  - asegura `.env` (lo copia de `.env.example` si falta),
   - `pnpm install` (usa `--frozen-lockfile` si existe `pnpm-lock.yaml`),
+  - `pnpm db:setup` (migraciones + seed),
   - `pnpm lint`,
   - `pnpm typecheck`,
   - `pnpm test`,

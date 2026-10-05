@@ -30,14 +30,23 @@
     "title": "Modelo de datos y seed del catálogo",
     "user_visible_behavior": "Al iniciar la app se cargan categorías, productos y variantes (talla/color/stock/precio) de ejemplo en SQLite.",
     "depends_on": ["bootstrap-stack"],
-    "status": "not_started",
+    "status": "accepted",
     "verification": [
       "Las migraciones crean las tablas User, Product, Variant, Category, Cart/CartItem, Order, OrderLine, Chat, TryonImage.",
       "El seed carga datos suficientes para demostrar catálogo, filtros y una compra.",
       "Un test o script verifica que el catálogo quedó poblado tras el arranque."
     ],
-    "evidence": [],
-    "notes": "Ver docs/domain-model.md (entidades y relaciones) y docs/technical-discovery.md (tablas). Seed data de ejemplo, sin datos reales de producto."
+    "evidence": [
+      "prisma/schema.prisma define los 10 modelos (Category, Product, Variant, User, Cart, CartItem, Order, OrderLine, Chat, TryonImage); `pnpm exec prisma validate` -> exit 0.",
+      "`pnpm exec prisma migrate dev --name init_catalog` -> migración 20261005182634_init_catalog; migration.sql con CREATE TABLE de las 10 tablas; cliente generado (postinstall).",
+      "`pnpm db:setup` (migrate deploy + db:seed) -> exit 0; resumen: 3 categorías, 8 productos, 29 variantes, 4 tallas, 4 colores, precios 1999-11999 centavos, 2 variantes agotadas (stock 0), 6 productos 100% en stock.",
+      "`pnpm db:seed` segunda ejecución -> mismos conteos (idempotente; upserts por slug/sku).",
+      "`pnpm test` -> exit 0; 7 tests (prisma/seed.test.ts: 6 sobre base temporal -> tablas consultables, tablas no sembradas vacías, conteos/dimensiones de filtro, stock, imágenes locales + createdAt escalonado, idempotencia; src/app/page.test.tsx: 1).",
+      "`pnpm lint`, `pnpm typecheck`, `pnpm build` -> exit 0 (seed y su test bajo tsc --noEmit y ESLint).",
+      "`./init.sh` -> exit 0 en checkout limpio (sin .env ni prisma/dev.db): crea .env desde .env.example, install, db:setup, lint, typecheck, test y build; deja prisma/dev.db poblado; sin dev servers.",
+      "Validación independiente (`feature-validator`, 2026-10-05): veredicto `accept`. Reverificó prisma validate, db:seed 1ª/2ª (idempotente), consulta directa a prisma/dev.db (10 tablas de dominio + _prisma_migrations; 3/8/29, 2 agotadas, tablas no-catálogo en 0), pnpm test (2 archivos/7 tests), ./init.sh en checkout limpio (crea .env, migra, siembra, gate, sin dev server), migration.sql con las 10 tablas y 8 SVG válidos. Hallazgos Low no bloqueantes (L1 resumen del gate en PROGRESS.md corregido)."
+    ],
+    "notes": "Modelo en centavos (Int), estados como String documentado, sin Json ni blobs. Migraciones commiteadas; seed idempotente con autoverificación y 8 SVG placeholder locales en public/images/products/. Scripts: postinstall (prisma generate), db:seed (tsx), db:setup (migrate deploy + seed); devDep tsx. Hallazgo: @prisma/client no resuelve .env de forma fiable si el cliente se genera antes de existir .env; el seed lo carga explícitamente con process.loadEnvFile."
   },
   {
     "id": "ai-provider-config",

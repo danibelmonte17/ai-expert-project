@@ -4,11 +4,11 @@
 
 - Raíz del repositorio: `/Users/juan/Documents/EDICION-5/harness/ai-expert-project`
 - Ruta estándar de arranque: `./init.sh`
-- Ruta estándar de verificación: `./init.sh` (gate: install + lint + typecheck + test + build; no bloqueante, sin dev servers)
+- Ruta estándar de verificación: `./init.sh` (gate: install + db:setup + lint + typecheck + test + build; asegura `.env`; no bloqueante, sin dev servers)
 - Arranque local: `pnpm dev`
-- Siguiente feature lista: `bootstrap-seed`
+- Siguiente feature lista: `catalog-list` (prerequisito `bootstrap-seed` en `accepted`)
 - Bloqueador actual: ninguno
-- Última verificación: `./init.sh` en verde (exit 0), 2026-08-26
+- Última verificación: `./init.sh` en verde (exit 0) en checkout limpio (sin `.env` ni `prisma/dev.db`), 2026-10-05
 
 ## Registro de sesión
 
@@ -46,3 +46,29 @@
 - Riesgo o cuestión no resuelta: `@prisma/client` aún sin `prisma generate` (sin modelos; se generará el cliente en `bootstrap-seed` cuando existan modelos). Build scripts de `@prisma/client` ignorados por pnpm a propósito (no necesarios aún).
 - Estado: feature `bootstrap-stack` en `accepted` (validación independiente vía `feature-validator`: veredicto `accept`).
 - Siguiente mejor paso: validación independiente de `bootstrap-stack`; después, feature `bootstrap-seed` (modelo de datos + seed del catálogo).
+
+### Sesión 003 — `bootstrap-seed`
+
+- Fecha: 2026-10-05
+- Objetivo: definir el modelo de datos completo en Prisma, crear las migraciones SQLite, un seed idempotente del catálogo y dejar la base poblada desde la ruta estándar de arranque.
+- Completado:
+  - `prisma/schema.prisma`: 10 modelos (`Category`, `Product`, `Variant`, `User`, `Cart`, `CartItem`, `Order`, `OrderLine`, `Chat`, `TryonImage`) con relaciones, `@@unique`/`@@index`, `onDelete: Cascade`; dinero en centavos (`Int`), estados como `String` documentado, sin `Json` ni blobs.
+  - Migración `prisma/migrations/20261005182634_init_catalog/migration.sql` + `migration_lock.toml` (commiteables).
+  - `prisma/seed.ts`: catálogo idempotente (3 categorías, 8 productos, 29 variantes; 4 tallas, 4 colores; 19,99–119,99 €; 2 agotadas; 6 productos 100% en stock; `createdAt` escalonado; `imageUrl` local), resumen y autoverificación (falla si no se cumplen mínimos). Carga `.env` en runtime con `process.loadEnvFile`.
+  - `public/images/products/*.svg`: 8 placeholders locales.
+  - `prisma/seed.test.ts`: 6 tests sobre base temporal (`prisma/test-seed.db`, limpiada al final).
+  - `package.json`: scripts `postinstall` (`prisma generate`), `db:seed` (`tsx prisma/seed.ts`), `db:setup` (`prisma migrate deploy && pnpm db:seed`) y devDep `tsx` 4.23.15.
+  - `init.sh`: asegura `.env` (copia de `.env.example`) y ejecuta `pnpm db:setup` entre install y lint; sin dev servers.
+- Verificación ejecutada y evidencia:
+  - `pnpm install` → OK; `postinstall` ejecuta `prisma generate` → cliente tipado.
+  - `pnpm exec prisma validate` → exit 0.
+  - `pnpm exec prisma migrate dev --name init_catalog` → migración `20261005182634_init_catalog`; `migration.sql` con `CREATE TABLE` de las 10 tablas.
+  - `pnpm db:setup` → exit 0; resumen: 3 categorías, 8 productos, 29 variantes, 4 tallas, 4 colores, precios 1999-11999, 2 agotadas, 6 productos 100% en stock.
+  - `pnpm db:seed` (2ª ejecución) → mismos conteos (idempotente).
+  - `pnpm test` → exit 0 (7 tests: 6 de seed + 1 de la home).
+  - `pnpm lint` / `pnpm typecheck` / `pnpm build` → exit 0.
+  - `./init.sh` → exit 0 en checkout limpio (sin `.env` ni `prisma/dev.db`): crea `.env`, install, db:setup, lint, typecheck, test, build; deja `prisma/dev.db` poblado; sin dev servers.
+- Archivos o artefactos actualizados: `prisma/schema.prisma`, `prisma/migrations/**`, `prisma/seed.ts`, `prisma/seed.test.ts`, `public/images/products/*.svg`, `package.json`, `init.sh`, `ARCHITECTURE.md`, `CONSTRAINTS.md`, `AGENTS.md`, `docs/risks-and-open-questions.md`, `feature_list.json`, `PROGRESS.md`.
+- Riesgo o cuestión no resuelta: `@prisma/client` no resuelve `.env` de forma fiable cuando el cliente se genera antes de existir `.env` (checkout limpio); mitigado cargando `.env` explícitamente en el seed. La advertencia de Next sobre múltiples lockfiles proviene del árbol de worktrees, no de esta feature.
+- Estado: feature `bootstrap-seed` en `passing` (pendiente de validación independiente).
+- Siguiente mejor paso: validación independiente de `bootstrap-seed`; después, feature `catalog-list`.

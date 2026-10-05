@@ -15,6 +15,15 @@ else
   pnpm install
 fi
 
+echo "==> Asegurando .env"
+if [ ! -f .env ]; then
+  cp .env.example .env
+  echo "    .env creado a partir de .env.example"
+fi
+
+echo "==> Preparando base de datos (migraciones + seed)"
+pnpm db:setup
+
 echo "==> Lint"
 pnpm lint
 

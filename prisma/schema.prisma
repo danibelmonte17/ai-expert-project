@@ -1,3 +1,12 @@
+// Modelo de datos de la tienda (bootstrap-seed).
+// Convenciones:
+// - IDs cuid(); createdAt/updatedAt en todas las entidades.
+// - Dinero SIEMPRE en centavos de EUR (Int): priceCents, unitPriceCents, totalCents.
+// - Estados y valores acotados como String con valores documentados en comentarios
+//   (SQLite no soporta enums de Prisma).
+// - Sin campos Json ni blobs: el historial de chat se serializa como String y las
+//   imagenes se guardan solo como referencias (String).
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -5,4 +14,173 @@ generator client {
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
+}
+
+/// Categoria de agrupacion del catalogo (camisetas, pantalones, abrigos, ...).
+model Category {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  products  Product[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Articulo de ropa. Tiene un precio base y 1..n variantes.
+model Product {
+  id          String       @id @default(cuid())
+  slug        String       @unique
+  name        String
+  description String
+  imageUrl    String
+  priceCents  Int // Precio base en centavos de EUR.
+  currency    String       @default("EUR")
+  categoryId  String
+  category    Category     @relation(fields: [categoryId], references: [id])
+  variants    Variant[]
+  tryonImages TryonImage[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([categoryId])
+}
+
+/// Unidad comprable: combinacion unica de talla y color. Estado derivado:
+/// Disponible (stock > 0) / Agotada (stock = 0).
+model Variant {
+  id          String       @id @default(cuid())
+  productId   String
+  product     Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  size        String // S | M | L | XL
+  color       String // negro | blanco | azul | rojo
+  sku         String       @unique
+  stock       Int          @default(0)
+  priceCents  Int
+  cartItems   CartItem[]
+  orderLines  OrderLine[]
+  tryonImages TryonImage[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([productId, size, color])
+  @@index([productId])
+}
+
+/// Cuenta creada en el checkout. Los datos de contacto/envio viven aqui.
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String
+  name         String
+  addressLine  String?
+  city         String?
+  postalCode   String?
+  phone        String?
+  carts        Cart[]
+  orders       Order[]
+  chats        Chat[]
+  tryonImages  TryonImage[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+/// Carrito persistente para invitado (guestId) o usuario (userId).
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String?
+  user      User?      @relation(fields: [userId], references: [id])
+  guestId   String?
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([userId])
+  @@index([guestId])
+}
+
+/// Item de carrito: variante + cantidad.
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  variantId String
+  variant   Variant  @relation(fields: [variantId], references: [id])
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cartId, variantId])
+  @@index([variantId])
+}
+
+/// Pedido de un usuario. El pago simulado se modela con paymentStatus.
+/// status: "PENDIENTE_PAGO" | "PAGADO" | "CANCELADO"
+/// paymentStatus: "PENDIENTE" | "APROBADO" | "RECHAZADO"
+model Order {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id])
+  status        String
+  paymentStatus String
+  totalCents    Int
+  lines         OrderLine[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([userId])
+}
+
+/// Linea de pedido: variante + cantidad + precio unitario congelado.
+model OrderLine {
+  id             String   @id @default(cuid())
+  orderId        String
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variantId      String
+  variant        Variant  @relation(fields: [variantId], references: [id])
+  quantity       Int
+  unitPriceCents Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([variantId])
+}
+
+/// Conversacion del chatbot (anonima o ligada a un usuario).
+/// messages: historial serializado como String (JSON), sin campos Json.
+model Chat {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  guestId   String?
+  messages  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([guestId])
+}
+
+/// Trabajo/resultado de la prueba virtual. Solo referencias a ficheros/URLs,
+/// nunca blobs. status: "SOLICITADO" | "GENERADO" | "ERROR"
+model TryonImage {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  guestId   String?
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  variantId String?
+  variant   Variant? @relation(fields: [variantId], references: [id])
+  status    String
+  sourceRef String
+  resultRef String?
+  error     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([guestId])
+  @@index([productId])
+  @@index([variantId])
 }
