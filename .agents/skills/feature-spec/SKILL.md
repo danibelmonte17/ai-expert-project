@@ -68,6 +68,8 @@ Record inspected files in the spec. Do not pretend to have inspected files that 
 
 Create or update `../../../docs/specs/<feature-id>.md` using `references/spec-template.md`. For a sense of the right level of detail, look at an existing accepted spec such as `../../../docs/specs/bootstrap-nextjs-shell.md`.
 
+Visual verification contract (mandatory when UI is involved): if the feature changes any user-visible screen, state, or style, the spec's Verification Plan must require visual checks with the Chrome DevTools MCP (`chrome-devtools_*` / `mcp__chrome-devtools__*`), not shell `curl` output or verbal claims. Specify routes to open, viewports (desktop + mobile), and expected snapshot/screenshot evidence. The planner only defines this contract — it does not execute the visual verification (no need to open the browser or capture screenshots); execution belongs exclusively to the validator, not to the implementer.
+
 The spec must include:
 
 - source feature metadata,
@@ -96,6 +98,7 @@ Before finishing, check:
 - The plan names concrete files or directories where possible.
 - The tasks are ordered and executable.
 - Verification includes commands or manual checks available in the repo's current state.
+- If the feature has UI/visual behavior, the verification plan requires Chrome DevTools MCP visual checks (`navigate_page` + `take_snapshot` + `take_screenshot`, plus `list_console_messages` for console errors and viewport emulation via `emulate`/`resize_page` for responsive states) and names the exact routes, viewports, and evidence files.
 - If a persistent E2E command exists and the feature changes user-visible behavior, authentication, authorization, routing, or API flows, the verification plan should include adding/updating focused E2E coverage or explicitly justify why unit/integration coverage is enough.
 - For shell scripts such as `init.sh`, the spec states whether the script must execute checks, print guidance, start services, or provide modes. The default harness rule is: `init.sh` executes non-blocking startup/verification checks and must not start long-running dev servers.
 - Durable documentation impact is explicit: `../../../ARCHITECTURE.md`, `../../../CONSTRAINTS.md`, `../../../AGENTS.md`, and other durable docs are each marked create/update/not needed with a reason.

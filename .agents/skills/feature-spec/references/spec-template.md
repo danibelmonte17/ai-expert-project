@@ -111,6 +111,11 @@ Use these rules:
 - <Command or manual scenario to run.>
 - <Expected result.>
 - If the repo has a persistent E2E command such as `pnpm test:e2e` and this feature changes user-visible behavior, authentication, authorization, routing, or API flows, add or update focused E2E coverage and include the E2E command here. If E2E is not appropriate, state why.
+- If this feature has UI/visual behavior, require visual verification with the Chrome DevTools MCP instead of `curl`/DOM-string assertions alone (to be executed exclusively by the validator, not by the planner nor the implementer):
+  - `navigate_page` to each affected route (dev server URL, e.g. `http://localhost:3000/<route>`),
+  - `take_snapshot` to assert key visible elements/states,
+  - `take_screenshot` (desktop + mobile viewport via `emulate`/`resize_page`) saved as evidence,
+  - `list_console_messages` to confirm no new console errors on those routes.
 
 For `init.sh`, be explicit:
 
@@ -121,12 +126,14 @@ For `init.sh`, be explicit:
 ## Evidence To Capture
 
 - <Command output, screenshot, test name, log line, or manual result to record in `feature_list.json` or `../../../../PROGRESS.md`.>
+- For UI features: validator-captured Chrome DevTools MCP snapshot summary + screenshot file path(s) per viewport + console-messages result (no errors), recorded in `feature_list.json`/`../../../../PROGRESS.md`.
 
 ## Validator Checklist
 
 - [ ] Implementation stays within this feature's scope.
 - [ ] Acceptance scenarios pass.
 - [ ] Verification evidence is present.
+- [ ] For UI features, validator-captured Chrome DevTools MCP visual evidence exists (snapshot + screenshots per viewport + clean console) for each affected route/state.
 - [ ] Persistent E2E coverage was added/updated when the feature has an observable user/API flow and an E2E harness exists, or the spec explains why it is not needed.
 - [ ] `feature_list.json` and `../../../../PROGRESS.md` were updated correctly.
 - [ ] No unrelated product behavior or extra feature work was added.

@@ -90,6 +90,8 @@ Self-verification should include the strongest applicable levels available today
 3. persistent E2E checks when the repo has them and the feature affects an observable user/API flow,
 4. manual user-flow or smoke checks when persistent E2E is not yet available or cannot cover the case.
 
+Visual verification with the Chrome DevTools MCP is NOT the implementer's job: it belongs exclusively to the validator (see `feature-validator`). The implementer must only leave the UI in a validator-ready state (app builds, dev server starts, routes respond) and must not spend time on browser screenshots/snapshots. An optional quick snapshot is allowed but never required for `passing`.
+
 If any required check fails, fix it or leave the feature non-passing with a clear blocker. Do not hide failures.
 
 ### 5. Update Harness State

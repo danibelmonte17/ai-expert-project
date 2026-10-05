@@ -80,6 +80,9 @@ Use this hierarchy:
 2. tests and runtime/startup checks,
 3. persistent E2E checks such as `pnpm test:e2e` when available and relevant,
 4. user-flow or manual smoke checks when persistent E2E is not yet available or cannot cover the case.
+5. visual verification with the Chrome DevTools MCP when the spec/implementation has UI/visual behavior (mandatory, validator-exclusive — the implementer does not provide it, see below). Verbal confidence, `curl` output, or unit-test logs alone never count as visual evidence.
+
+Visual verification procedure (UI features, validator-owned): use `navigate_page` on each affected route, `take_snapshot` to confirm acceptance-scenario elements/states, `take_screenshot` on desktop + mobile viewport (`emulate`/`resize_page`), and `list_console_messages` to confirm no new errors. Re-run interactively (`click`/`fill`/`press_key`) for changed flows. Do not expect implementer screenshots; always capture fresh evidence. Missing or substituted visual evidence is normally a `revise` finding (implementer repair) or `block` if the UI is unreachable.
 
 If the repo has a persistent E2E command and the feature changes user-visible behavior, authentication, authorization, routing, or API flows, verify that focused E2E coverage was added/updated or that the spec/implementation gives a credible reason it was not needed. Missing relevant E2E coverage is normally a `revise` finding once the E2E harness exists.
 

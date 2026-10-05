@@ -59,6 +59,18 @@ Use the strongest applicable available checks:
 
 Record exact commands and results. If a check is impossible in the current repo state, record the reason and the next action needed to make it possible.
 
+## Visual Verification: Validator-Only (Do Not Run In Implementer)
+
+Visual verification with the Chrome DevTools MCP (`chrome-devtools_*` / `mcp__chrome-devtools__*`) belongs exclusively to the validator. The implementer must NOT run `navigate_page` / `take_snapshot` / `take_screenshot` as required verification and must NOT block `passing` on missing screenshots.
+
+Implementer responsibility for UI features is limited to leaving the work validator-ready:
+
+- app builds, dev server starts, affected routes respond without errors,
+- acceptance-scenario states are reachable as described in the spec,
+- `feature_list.json`/`PROGRESS.md` names the routes and states the validator must visually check.
+
+A quick optional snapshot to catch an obvious breakage is allowed, but never required and never a substitute for validator evidence.
+
 ## Scope Rules
 
 - One feature per implementation session.
