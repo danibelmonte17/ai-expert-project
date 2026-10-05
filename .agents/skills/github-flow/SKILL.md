@@ -1,6 +1,6 @@
 ---
 name: github-flow
-description: Orquesta el flujo completo por feature con git y GitHub (gh) reutilizando feature-flow. Crea o reutiliza la issue, la rama y un worktree aislado en ../tienda-worktrees/<id>, lanza una sesión independiente con `opencode run --dir <worktree>` que usa $feature-flow, y solo publica (push + PR contra demo/seed) cuando la feature queda accepted. Use when the user asks to run the github flow, create issues/worktrees per feature, run the feature flow in parallel worktrees, or publish accepted features as PRs from feature_list.json.
+description: Orquesta el flujo completo por feature con git y GitHub (gh) reutilizando feature-flow. Crea o reutiliza la issue, la rama y un worktree aislado en .worktrees/<id>, lanza una sesión independiente con `opencode run --dir <worktree>` que usa $feature-flow, y solo publica (push + PR contra demo/seed) cuando la feature queda accepted. Use when the user asks to run the github flow, create issues/worktrees per feature, run the feature flow in parallel worktrees, or publish accepted features as PRs from feature_list.json.
 ---
 
 # GitHub Flow
@@ -70,8 +70,8 @@ Para cada feature `<id>`:
 1. Calcular el `<index>` (0-based) dentro de la tanda y asignar un puerto determinista y una base de datos propia:
    - puerto: `3000 + <index>` (por ejemplo `PORT=3000`, `PORT=3001`, ...).
    - base de datos: `DATABASE_URL="file:./dev-<id>.db"` (aislada por feature).
-2. Crear la rama y el worktree desde el mismo `BASE_SHA`, en `../tienda-worktrees/<id>`:
-   - `git worktree add -b feat/<id> ../tienda-worktrees/<id> <BASE_SHA>`
+2. Crear la rama y el worktree desde el mismo `BASE_SHA`, en el subdirectorio dentro del proyecto `.worktrees/<id>` (ruta relativa a la raíz del repo, ignorada por git vía `/.worktrees/` en `.gitignore`):
+   - `git worktree add -b feat/<id> .worktrees/<id> <BASE_SHA>`
    - El nombre de rama es `feat/<id>`.
    - Todas las features de la tanda parten del mismo `BASE_SHA` para que las PR sean comparables.
 3. Copiar el entorno al worktree:
@@ -79,7 +79,7 @@ Para cada feature `<id>`:
    - Sobrescribir/ajustar en el `.env` del worktree: `PORT` propio y `DATABASE_URL` propia (base de datos aislada).
    - Preparar la base de datos del worktree: `pnpm install` y `pnpm db:setup` (o `./init.sh`) dentro del worktree.
 4. Reutilización en reejecuciones:
-   - Si `../tienda-worktrees/<id>` ya existe y está registrado en `git worktree list`, reutilizarlo tal cual.
+   - Si `.worktrees/<id>` ya existe y está registrado en `git worktree list`, reutilizarlo tal cual.
    - Si la rama `feat/<id>` ya existe, reutilizarla; no recrearla ni borrarla.
    - No borrar ni reinicializar un worktree con trabajo previo.
 
@@ -88,7 +88,7 @@ Para cada feature `<id>`:
 Lanzar exactamente una sesión por feature, en su propio worktree:
 
 ```
-opencode run --dir ../tienda-worktrees/<id> "Usa $feature-flow para la feature <id>. Trabaja solo esa feature hasta aceptación. No hagas push ni PR."
+opencode run --dir .worktrees/<id> "Usa $feature-flow para la feature <id>. Trabaja solo esa feature hasta aceptación. No hagas push ni PR."
 ```
 
 Reglas de la sesión:
@@ -110,13 +110,13 @@ Publicar una feature solo si se cumplen todas:
 Pasos:
 
 1. Revisar rama, commit y evidencia antes de subir:
-   - `git -C ../tienda-worktrees/<id> log --oneline -5`
-   - `git -C ../tienda-worktrees/<id> status --porcelain`
+   - `git -C .worktrees/<id> log --oneline -5`
+   - `git -C .worktrees/<id> status --porcelain`
 2. Reutilizar la PR si ya existe:
    - `gh pr list --head feat/<id> --state all --json number,url,baseRefName`
    - Si ya existe una PR abierta contra `demo/seed`, no crear otra; actualizarla solo si hace falta.
 3. Push de la rama:
-   - `git -C ../tienda-worktrees/<id> push -u origin feat/<id>`
+   - `git -C .worktrees/<id> push -u origin feat/<id>`
    - Sin permiso explícito de push, no ejecutar este paso: reportar la feature como "accepted, sin publicar".
 4. Crear la PR contra `demo/seed` con la evidencia, usando `--body-file`:
    - Escribir el cuerpo de la PR en un fichero temporal (por ejemplo `docs/.github-flow/<id>-pr.md`) con: resumen, feature id, spec, verificación ejecutada, veredicto del validador, commit(s), issue enlazada y cómo probar.
@@ -171,10 +171,10 @@ Reutilizar si ya existe para el mismo `<id>`.
 Por cada feature, después de publicar:
 
 1. Verificar que el worktree está limpio y que todo está subido:
-   - `git -C ../tienda-worktrees/<id> status --porcelain` vacío.
-   - No hay commits locales sin subir (`git -C ../tienda-worktrees/<id> log origin/feat/<id>..HEAD` vacío).
+   - `git -C .worktrees/<id> status --porcelain` vacío.
+   - No hay commits locales sin subir (`git -C .worktrees/<id> log origin/feat/<id>..HEAD` vacío).
 2. Si está limpio y todo está subido, borrar el worktree conservando la rama:
-   - `git worktree remove ../tienda-worktrees/<id>`
+   - `git worktree remove .worktrees/<id>`
 3. Si está sucio o hay commits sin subir, no borrar: dejar el worktree y reportar por qué.
 
 ## Salida
