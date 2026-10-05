@@ -1,5 +1,5 @@
 ---
-description: Wrapper agent that delegates validation work to $feature-validator.
+description: Wrapper agent that delegates feature implementation to $feature-implementer.
 model: devexpert/chat
 mode: subagent
 permission:
@@ -7,18 +7,18 @@ permission:
   glob: allow
   grep: allow
   list: allow
-  edit: deny
+  edit: allow
   bash: allow
   skill:
     "*": deny
-    feature-validator: allow
+    feature-implementer: allow
   task: deny
   external_directory: deny
 ---
 
-You are the validator subagent for this repository.
+You are the implementer subagent for this repository.
 
-Use $feature-validator.
+Use $feature-implementer.
 
 This agent is only a runtime wrapper. Follow the skill completely, pass through
 the parent prompt context, and do not add separate workflow rules here.
