@@ -11,19 +11,19 @@ Use this skill to let the main agent coordinate the three project subagents:
 - `implementer` wraps `$feature-implementer`.
 - `validator` wraps `$feature-validator`.
 
-The main agent is the orchestrator. It chooses the next role, launches the right subagent, reviews the result, and keeps the same feature moving until the flow reaches an explicit stop condition.
+The main agent is the orchestrator. It chooses the next role, launches the matching named subagent (`planner`, `implementer`, or `validator` — never a generic subagent), reviews the result, and keeps the same feature moving until the flow reaches an explicit stop condition.
 
 ## Hard Rules
 
 - Work on one feature at a time.
-- Do not run planner, implementer, and validator in parallel for the same feature.
+- Do not run the `planner`, `implementer`, and `validator` subagents in parallel for the same feature.
 - Do not skip roles unless the required artifact already exists and is current.
 - Do not implement work in the main agent while a subagent owns that role.
 - Subagents do not create commits. The main orchestrator owns final staging and commit after validator acceptance.
 - Do not treat `passing` as accepted. `passing` means implementer self-verification passed; validator `accept` is independent.
 - After validation returns `accept`, persist acceptance by changing the selected feature status in `feature_list.json` from `passing` to `accepted` and appending concise evidence that names the independent validator acceptance.
-- If validation returns `revise`, route the repair brief back to `implementer` for the same feature.
-- After a `revise` repair, route the same feature back to `validator`; do not stop after the repair unless the user explicitly asked for a single role step.
+- If validation returns `revise`, route the repair brief back to the `implementer` subagent for the same feature.
+- After a `revise` repair, route the same feature back to the `validator` subagent; do not stop after the repair unless the user explicitly asked for a single role step.
 - If validation returns `block`, stop and report the blocker.
 - After validation returns `accept`, stage only the accepted feature's changes and create a Conventional Commit before selecting or reporting the next feature.
 - After every accepted feature pass, the main orchestrator must report what changed and how the user can try it locally. The implementer supplies raw verification notes, the validator checks they are real, and the orchestrator presents the final user-facing testing steps after the commit.
@@ -58,15 +58,21 @@ If no unfinished feature is dependency-ready, report the blocking dependency ids
 For the selected feature:
 
 0. If the feature status is `accepted`, report that the feature is already planned, implemented, and accepted; select the next available feature if the user asked to continue.
-1. If `../../../docs/specs/<feature-id>.md` is missing or stale, run `planner`.
-2. Else if the feature is neither `passing` nor `accepted`, run `implementer`.
-3. Else if the feature is `passing`, run `validator`.
+1. If `../../../docs/specs/<feature-id>.md` is missing or stale, run the `planner` subagent.
+2. Else if the feature is neither `passing` nor `accepted`, run the `implementer` subagent.
+3. Else if the feature is `passing`, run the `validator` subagent.
 
 Validation records should live under `../../../docs/validations/<feature-id>.md` when the validator or main agent persists them. If the validator only reports in chat, the main agent should ask before writing a validation record unless the user requested persistence.
 
 ## Configured Subagents
 
 Launch the project subagents configured for the active agent runtime.
+The agent name must match exactly: `planner`, `implementer`, `validator`.
+
+- In opencode, invoke via Task with `subagent_type` exactly `planner` / `implementer` / `validator` for the matching role. Never substitute `general`, `explore`, `plan`, or `build`.
+- Via `@` mention, use `@planner`, `@implementer`, `@validator` (not `@plan`).
+- Do NOT pass `model`, `variant`, `temperature`, or `top_p` overrides in the Task invocation. Omit those fields so each subagent uses its own configured `model` from `.opencode/agents/<name>.md`, which is the single source of truth. Any explicit model override makes the subagent ignore its own model and use the override / parent model instead.
+- This is required because opencode subagents without an explicit `model` inherit the parent primary's model by design. Expected mapping: `planner` -> `devexpert/chat-pro`, `implementer`/`validator` -> `devexpert/chat`.
 
 Send only dynamic handoff context:
 
@@ -85,8 +91,8 @@ Default behavior for this skill is until-accepted mode for one selected feature.
 
 Mode summary: until-accepted is the default full pipeline for one feature; one-step runs a single role only when explicitly requested; next-feature only selects and reports after an accept, never auto-starts.
 
-- Until-accepted mode: run planner -> implementer -> validator sequentially for one feature, stopping only when the validator returns `accept`, the validator returns `block`, or a subagent cannot continue.
-- Repair loop: if validator returns `revise`, run `implementer` with the repair brief, then run `validator` again for the same feature.
+- Until-accepted mode: run the `planner` -> `implementer` -> `validator` subagents sequentially for one feature, stopping only when the validator returns `accept`, the validator returns `block`, or a subagent cannot continue.
+- Repair loop: if validator returns `revise`, run the `implementer` subagent with the repair brief, then run the `validator` subagent again for the same feature.
 - One-step mode: run only the next required role and report the result only when the user explicitly asks for a single step, dry run, preview, or next-role-only execution.
 - Next-feature mode: after accept, select the next feature and report the next required role; do not start it unless asked.
 

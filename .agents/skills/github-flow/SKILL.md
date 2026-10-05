@@ -7,7 +7,7 @@ description: Orquesta el flujo completo por feature con git y GitHub (gh) reutil
 
 Orquesta el ciclo completo de una o varias features combinando `git`, GitHub (`gh`) y el flujo de `$feature-flow`. Cada feature corre en su propia rama, su propio worktree y su propia sesión, para que varias features circulen en paralelo sin pisarse.
 
-Este documento es el orquestador de nivel superior. No reimplementa el flujo planner → implementer → validator: lo delega a `$feature-flow` dentro de cada sesión independiente.
+Este documento es el orquestador de nivel superior. No reimplementa el flujo de los subagentes `planner` → `implementer` → `validator` (invocados por su nombre exacto): lo delega a `$feature-flow` dentro de cada sesión independiente.
 
 ## Reglas duras
 
@@ -94,7 +94,7 @@ opencode run --dir .worktrees/<id> "Usa $feature-flow para la feature <id>. Trab
 Reglas de la sesión:
 
 - El prompt debe pedir explícitamente `$feature-flow` para el `<id>` seleccionado y nada más.
-- La sesión corre en modo until-accepted (planner → implementer → validator), y `$feature-flow` se encarga del commit de aceptación.
+- La sesión corre en modo until-accepted (subagentes `planner` → `implementer` → `validator`, invocados por su nombre exacto), y `$feature-flow` se encarga del commit de aceptación.
 - Nunca lanzar dos features en la misma sesión ni compartir contexto entre sesiones.
 - No publicar desde la sesión de feature: el push y la PR los decide y ejecuta el orquestador tras confirmar `accepted` y tener permiso.
 - Al terminar la sesión, el orquestador revisa el estado en el worktree (`feature_list.json`, `git log`, `git status`) antes de publicar.

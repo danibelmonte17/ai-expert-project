@@ -5,16 +5,5 @@
       "type": "local",
       "command": ["npx", "--force", "-y", "chrome-devtools-mcp@latest"]
     }
-  },
-  "agent": {
-    "planner": {
-      "model": "devexpert/chat-pro"
-    },
-    "implementer": {
-      "model": "devexpert/chat"
-    },
-    "validator": {
-      "model": "devexpert/chat"
-    }
   }
 }
