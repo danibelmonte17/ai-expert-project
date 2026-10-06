@@ -6,9 +6,9 @@
 - Ruta estándar de arranque: `./init.sh`
 - Ruta estándar de verificación: `./init.sh` (gate: install + db:setup + lint + typecheck + test + build; asegura `.env`; no bloqueante, sin dev servers)
 - Arranque local: `pnpm dev`
-- Siguiente paso: `catalog-filter` (prerequisito `catalog-list` en `accepted`); requiere rol `planner`.
+- Siguiente paso: `catalog-filter` (prerequisito `catalog-list` en `accepted`) o las features que dependen de la capa de IA (`chatbot-conversation` requiere `ai-provider-config` + `bootstrap-seed`, ambos en `accepted`); requiere rol `planner`.
 - Bloqueador actual: ninguno
-- Última verificación: `./init.sh` en verde (exit 0) durante la validación independiente de `catalog-list` (`accept`), 2026-10-06
+- Última verificación: `./init.sh` en verde (exit 0) durante la validación independiente de `ai-provider-config` (`accept`), 2026-10-06
 
 ## Registro de sesión
 
@@ -101,3 +101,26 @@
   - Alcance, arquitectura y documentación durables conformes; desviación de `vitest.config.ts` (alias `@` + cleanup explícito) juzgada justificada y en alcance. Hallazgos Low/Informativos no bloqueantes.
 - Estado: feature `catalog-list` en `accepted` (validación independiente: `accept`).
 - Siguiente mejor paso: feature `catalog-filter` (prerequisito `catalog-list` en `accepted`); requiere rol `planner`.
+
+### Sesión 005 — `ai-provider-config`
+
+- Fecha: 2026-10-06
+- Objetivo: crear la capa de IA `src/lib/ai` con proveedor/modelos configurables por env, un contrato de resultado controlado (`AiResult`) y las funciones compartidas de chat/edición de imagen contra el gateway OpenAI-compatible de DevExpert, sin servicios externos obligatorios.
+- Completado:
+  - `src/lib/ai/result.ts`: `AiResult<T>`, `AiErrorCode` (`missing_api_key`/`quota_exhausted`/`provider_error`), `AI_ERROR_MESSAGES` (mensajes canónicos en español) y `aiFailure`.
+  - `src/lib/ai/config.ts`: `loadAiConfig(env = process.env)` (`DEVEXPERT_API_KEY` trim/vacía→`null`; `AI_PROVIDER_BASE_URL`→`https://inference.devexpert.io/v1`; `AI_CHAT_MODEL`→`chat`; `AI_CHAT_PRO_MODEL`→`chat-pro`; `AI_IMAGE_EDIT_MODEL`→`image-edit`), tipo `AiEnv` y `isAiConfigured`.
+  - `src/lib/ai/client.ts`: `completeChat`/`editImage` sobre el SDK `openai` (v7.28.0), única puerta al gateway, cliente inyectable; sin clave → `missing_api_key` sin red; `status 429` o código de cuota → `quota_exhausted`; red/5xx → `provider_error`; `editImage` normaliza `b64_json` o `url`→base64.
+  - `src/lib/ai/config.test.ts` (6 tests) y `src/lib/ai/client.test.ts` (16 tests, entorno `node`, stub de cliente; sin red).
+  - Dependencia `openai` 7.28.0 (`package.json` + `pnpm-lock.yaml`).
+  - `.env.example` (commiteado) y `.env` local ampliados con `AI_PROVIDER_BASE_URL`, `AI_CHAT_MODEL`, `AI_CHAT_PRO_MODEL`, `AI_IMAGE_EDIT_MODEL` comentadas con sus defaults.
+- Verificación ejecutada y evidencia:
+  - `pnpm test` → exit 0; 7 archivos / 36 tests (nuevos: `config.test.ts` 6, `client.test.ts` 16).
+  - `pnpm lint` → exit 0; `pnpm typecheck` → exit 0; `pnpm build` → exit 0.
+  - `./init.sh` → exit 0 (install + db:setup + lint + typecheck + test + build; asegura `.env`; sin dev servers; script sin cambios). Nota de entorno: el worktree (Windows) no tiene WSL; el gate se ejecutó con Git Bash (`C:\Program Files\Git\bin\bash.exe ./init.sh`), que sí resuelve `node`/`pnpm`.
+  - Grep "no cableado": URL base e ids de modelo solo como defaults en `src/lib/ai/config.ts`, en docs/`.env.example` y en tests que los afirman; nunca en `client.ts` ni en puntos de llamada.
+  - Smoke de regresión: `pnpm dev` sin `DEVEXPERT_API_KEY` → `GET http://localhost:3000/` HTTP 200 (h1 "Catálogo", "Camiseta básica"); servidor detenido.
+- Archivos o artefactos actualizados: `src/lib/ai/{result,config,client}.ts`, `src/lib/ai/{config,client}.test.ts`, `package.json`, `pnpm-lock.yaml`, `.env.example` (y `.env` local), `ARCHITECTURE.md`, `CONSTRAINTS.md`, `docs/risks-and-open-questions.md`, `docs/specs/ai-provider-config.md` (Implementation Findings), `feature_list.json`, `PROGRESS.md`.
+- Riesgo o cuestión no resuelta: forma exacta del código de cupo agotado en el cuerpo del gateway y compatibilidad total del SDK `openai` con el gateway no confirmadas (no se usó ninguna clave real ni se hicieron llamadas de red); el cliente cubre `status 429` y códigos con `quota`/`rate_limit`, y tipos verificados por `tsc`. Sin E2E ni verificación visual (feature de lib en servidor, sin UI/routing/flujo de usuario).
+- Estado: feature `ai-provider-config` en `accepted` (validación independiente `feature-validator`, veredicto `accept`, 2026-10-06).
+- Validación independiente (`feature-validator`, 2026-10-06): veredicto `accept`. Reverificó `pnpm test` (7 archivos / 36 tests), `pnpm lint`, `pnpm typecheck`, `pnpm build` y `./init.sh` (exit 0); grep de 'no cableado' conforme; alcance/arquitectura/seguridad/docs durables conformes; E2E y verificación visual no aplican (sin UI). Notas Low no bloqueantes (timeout/allowlist en `normalizeImageBase64`, tildes en mensajes canónicos) a pulir en las features UI consumidoras.
+- Siguiente mejor paso: `catalog-filter` (prerequisito `catalog-list` en `accepted`) o `chatbot-conversation` (dependencias `ai-provider-config` y `bootstrap-seed` en `accepted`); requiere rol `planner`.

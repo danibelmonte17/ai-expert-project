@@ -54,14 +54,27 @@
     "title": "Configuración del proveedor de IA por entorno",
     "user_visible_behavior": "El proveedor/modelo de IA se configura por variables de entorno y sin clave la app degrada con un mensaje claro.",
     "depends_on": ["bootstrap-stack"],
-    "status": "not_started",
+    "status": "accepted",
     "verification": [
       "La ruta de proveedor/modelo es configurable por env (no cableada).",
       "Existen .env y .env.example con DEVEXPERT_API_KEY.",
       "Sin clave, las funciones de IA devuelven un mensaje de degradación controlado (sin romper)."
     ],
-    "evidence": [],
-    "notes": "DevExpert Inference (https://inference.devexpert.io/v1), clave DEVEXPERT_API_KEY, cliente OpenAI-compatible. Manejo de límite semanal (429) en technical-discovery.md."
+    "evidence": [
+      "Implementación: src/lib/ai/result.ts (AiResult, AiErrorCode, mensajes canónicos, aiFailure), src/lib/ai/config.ts (loadAiConfig/AiEnv con clave trim→null, defaults DevExpert, isAiConfigured), src/lib/ai/client.ts (completeChat/editImage sobre SDK openai, cliente inyectable, única puerta al gateway, mapeo de errores), src/lib/ai/config.test.ts, src/lib/ai/client.test.ts.",
+      "pnpm test → exit 0; 7 archivos / 36 tests. Nuevos: src/lib/ai/config.test.ts (6) y src/lib/ai/client.test.ts (16): defaults de DevExpert, overrides de URL/modelos, clave vacía/espacios→null; sin clave→missing_api_key con 0 llamadas al stub; env no por defecto→modelo configurado y createOpenAiClient usa la URL configurada; 429/código de cuota→quota_exhausted; red/5xx→provider_error sin lanzar; éxito de chat y edición (b64_json y url→base64); ningún mensaje de error contiene la clave.",
+      "pnpm lint → exit 0; pnpm typecheck → exit 0; pnpm build → exit 0.",
+      "./init.sh → exit 0 (install + db:setup + lint + typecheck + test + build; asegura .env; sin dev servers; script sin cambios).",
+      "pnpm add openai → openai 7.28.0 (package.json + pnpm-lock.yaml; scripts/gate sin cambios).",
+      "Grep 'no cableado': https://inference.devexpert.io y los ids chat-pro/image-edit solo aparecen como defaults en src/lib/ai/config.ts, en docs/.env.example/feature_list y en los tests que los afirman; NUNCA en src/lib/ai/client.ts ni en puntos de llamada.",
+      ".env.example (commiteado) mantiene DATABASE_URL y DEVEXPERT_API_KEY= (vacía) y documenta AI_PROVIDER_BASE_URL/AI_CHAT_MODEL/AI_CHAT_PRO_MODEL/AI_IMAGE_EDIT_MODEL comentadas con sus defaults; .env local (ignorado) refleja las mismas variables. Sin secretos reales.",
+      "Mensajes canónicos: missing_api_key='Las funciones de IA no estan disponibles: falta configurar DEVEXPERT_API_KEY en el archivo .env. La tienda sigue funcionando sin IA.'; quota_exhausted='Se agoto el cupo semanal de IA. El servicio se reinicia automaticamente; intentalo de nuevo mas tarde.'; provider_error='No se pudo contactar con el servicio de IA. Comprueba tu conexion e intentalo de nuevo mas tarde.'",
+      "Smoke de regresión: pnpm dev sin DEVEXPERT_API_KEY → GET http://localhost:3000/ responde HTTP 200 con h1 'Catálogo' y el producto 'Camiseta básica'; servidor detenido.",
+      "Desviaciones de diseño (registradas en 'Implementation Findings' del spec): client como parámetro opcional en vez de default parameter (el SDK openai lanza con apiKey vacía, se conserva 'sin clave → sin red'); tipo AiEnv (Record plano) porque Next tipa NodeJS.ProcessEnv con NODE_ENV obligatorio; editImage normaliza b64_json o url→base64.",
+      "Sin E2E ni verificación visual: la feature es capa de lib en servidor, sin UI/routing/flujo de usuario; no existe pnpm test:e2e y no se introduce harness.",
+      "Validación independiente (`feature-validator`, 2026-10-06): veredicto `accept`. Reverificó `pnpm test` (7 archivos / 36 tests, incl. config.test.ts 6 y client.test.ts 16), `pnpm lint`, `pnpm typecheck`, `pnpm build` y `./init.sh` (exit 0, script sin cambios). Grep de 'no cableado' conforme (URL/modelos solo como defaults en config.ts). Alcance/arquitectura/seguridad/docs durables conformes; sin hallazgos bloqueantes (notas Low no bloqueantes: normalizeImageBase64 sin timeout/allowlist y mensajes canónicos sin tildes, a pulir en features UI consumidoras). E2E y verificación visual no aplican (sin UI) y su justificación se acepta."
+    ],
+    "notes": "DevExpert Inference (https://inference.devexpert.io/v1), clave DEVEXPERT_API_KEY, cliente OpenAI-compatible (SDK openai 7.28.0). Capa src/lib/ai (config/result/client), solo servidor. Sin clave → missing_api_key sin red; 429 → quota_exhausted; red/5xx → provider_error; mensajes canónicos en español para chatbot-*/tryon-*. Docs actualizados: ARCHITECTURE.md, CONSTRAINTS.md, docs/risks-and-open-questions.md, docs/specs/ai-provider-config.md (Implementation Findings)."
   },
   {
     "id": "catalog-list",
