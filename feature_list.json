@@ -69,13 +69,23 @@
     "title": "Listado de catálogo",
     "user_visible_behavior": "El usuario ve una cuadrícula responsive de productos con imagen, nombre, categoría y precio.",
     "depends_on": ["bootstrap-seed"],
-    "status": "not_started",
+    "status": "accepted",
     "verification": [
       "La página de catálogo lista los productos del seed con nombre, imagen, categoría y precio.",
       "La cuadrícula es responsive (1-2 columnas en móvil, 3-4 en escritorio)."
     ],
-    "evidence": [],
-    "notes": "Referencia visual: DESIGN.md (grid de 12 columnas, cards de producto). Sin filtros ni ordenación todavía (features siguientes)."
+    "evidence": [
+      "Implementación: src/lib/db.ts (singleton PrismaClient en globalThis), src/lib/catalog.ts (listCatalogProducts con include category + orderBy createdAt desc, cliente inyectable), src/lib/format.ts (formatPrice Intl es-ES), src/components/product-card.tsx + .module.css, src/components/product-grid.tsx + .module.css (grid 2/3/4 columnas, h1 'Catálogo', estado vacío), src/app/globals.css (tokens de DESIGN.md), src/app/layout.tsx (importa globals.css), src/app/page.tsx (RSC async + export const dynamic = 'force-dynamic').",
+      "pnpm test -> exit 0; 5 archivos / 14 tests. Nuevos: src/lib/catalog.test.ts (3: devuelve 8 productos con id/slug/name/imageUrl/priceCents/currency/categoryName; orden createdAt desc con 'camiseta-basica' primero y 'abrigo-invierno' último; resuelve 'Camisetas'); src/components/product-card.test.tsx (1: img con alt=nombre, nombre, categoría y precio '19,99'); src/components/product-grid.test.tsx (2: h1 + 3 listitems; estado vacío 'No hay productos disponibles.'); src/app/page.test.tsx (2: listado con listCatalogProducts mockeado + estado vacío).",
+      "pnpm lint -> exit 0; pnpm typecheck -> exit 0.",
+      "pnpm build -> exit 0; ruta / marcada como Dynamic (ƒ) por force-dynamic (no se congela el catálogo en build).",
+      "./init.sh -> exit 0 en la ruta estándar (install + db:setup + lint + typecheck + test + build; asegura .env; sin dev servers; script sin cambios).",
+      "Smoke runtime: pnpm dev + GET http://localhost:3000/ -> HTTP 200; HTML con h1 'Catálogo', 'Camiseta básica', 'Camisetas', '19,99' y las 8 imágenes de producto (8 slugs únicos: camiseta-basica/estampada/manga-larga, pantalon-chino/vaquero/deportivo, abrigo-ligero/invierno); servidor detenido tras la comprobación.",
+      "Desviación registrada: vitest.config.ts modificado (alias @/* → ./src y cleanup explícito en los tests jsdom), no previsto en Expected File Changes; ver 'Implementation Findings' en docs/specs/catalog-list.md.",
+      "Pendiente para el validator: verificación visual con Chrome DevTools MCP (snapshot de 8 cards + capturas desktop 1280 y móvil 375 + list_console_messages limpio en http://localhost:3000/).",
+      "Validación independiente (`feature-validator`, 2026-10-06): veredicto `accept`. Reverificó pnpm lint/typecheck/test (5 archivos/14 tests) y ./init.sh (exit 0); verificó en navegador real (Chrome 154 vía DevTools Protocol, MCP no expuesto en su runtime): h1 'Catálogo', 8 cards con img[alt=name]/nombre/categoría/precio en €, orden createdAt desc, grid 4 columnas a 1280x800 y 2 columnas a 375x667, sin 404 de /images/products/*.svg; capturas en docs/evidence/catalog-list-{desktop-1280,mobile-375}.png. Alcance y arquitectura conformes; desviación de vitest.config.ts (alias @ + cleanup) juzgada justificada y en alcance. Hallazgo Low no bloqueante: 404 de /favicon.ico (preexistente, fuera de alcance)."
+    ],
+    "notes": "Referencia visual: DESIGN.md (grid responsive, cards de producto). Sin filtros ni ordenación todavía (features siguientes). Introduce la capa src/lib (Prisma solo desde src/lib/db; dinero en UI vía formatPrice) y la convención CSS Modules + tokens de DESIGN.md. E2E diferido al primer flujo mutante (ver ARCHITECTURE.md). Desviación: vitest.config.ts (alias @ y cleanup) requerido para que los tests especificados resuelvan imports y limpien el DOM."
   },
   {
     "id": "catalog-filter",

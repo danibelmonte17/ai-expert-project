@@ -6,9 +6,9 @@
 - Ruta estándar de arranque: `./init.sh`
 - Ruta estándar de verificación: `./init.sh` (gate: install + db:setup + lint + typecheck + test + build; asegura `.env`; no bloqueante, sin dev servers)
 - Arranque local: `pnpm dev`
-- Siguiente feature lista: `catalog-list` (prerequisito `bootstrap-seed` en `accepted`)
+- Siguiente paso: `catalog-filter` (prerequisito `catalog-list` en `accepted`); requiere rol `planner`.
 - Bloqueador actual: ninguno
-- Última verificación: `./init.sh` en verde (exit 0) en checkout limpio (sin `.env` ni `prisma/dev.db`), 2026-10-05
+- Última verificación: `./init.sh` en verde (exit 0) durante la validación independiente de `catalog-list` (`accept`), 2026-10-06
 
 ## Registro de sesión
 
@@ -72,3 +72,32 @@
 - Riesgo o cuestión no resuelta: `@prisma/client` no resuelve `.env` de forma fiable cuando el cliente se genera antes de existir `.env` (checkout limpio); mitigado cargando `.env` explícitamente en el seed. La advertencia de Next sobre múltiples lockfiles proviene del árbol de worktrees, no de esta feature.
 - Estado: feature `bootstrap-seed` en `passing` (pendiente de validación independiente).
 - Siguiente mejor paso: validación independiente de `bootstrap-seed`; después, feature `catalog-list`.
+
+### Sesión 004 — `catalog-list`
+
+- Fecha: 2026-10-06
+- Objetivo: mostrar el catálogo como primera pantalla de producto en `/`: grid responsive de cards (imagen, nombre, categoría, precio) leyendo SQLite en runtime, e introducir la capa `src/lib` (Prisma singleton + consultas + formato) y la convención de estilos (CSS Modules + tokens de `DESIGN.md`).
+- Completado:
+  - `src/lib/db.ts`: singleton `PrismaClient` en `globalThis` (única puerta a Prisma desde `src/`).
+  - `src/lib/catalog.ts`: `listCatalogProducts(prisma = db)` → DTO `{ id, slug, name, imageUrl, priceCents, currency, categoryName }` con `include: { category: true }` y orden `createdAt` desc; cliente inyectable.
+  - `src/lib/format.ts`: `formatPrice(priceCents, currency)` con `Intl.NumberFormat("es-ES")`.
+  - `src/lib/catalog.test.ts`: test de integración en entorno `node` sobre base temporal `prisma/test-catalog.db` (migrate deploy + `seedCatalog`, limpieza al final); 3 tests.
+  - `src/app/globals.css` con tokens de `DESIGN.md` (variables CSS) e importado en `src/app/layout.tsx`.
+  - `src/components/product-card.tsx` (+ `.module.css`, + test jsdom): `<img alt=nombre>` con `aspect-ratio 1/1`/`object-fit: contain`, nombre, categoría y precio formateado; sin enlace.
+  - `src/components/product-grid.tsx` (+ `.module.css`, + test jsdom): `main` + `h1` "Catálogo" + `ul`/`li`, grid 2 columnas (base) / 3 (≥768px) / 4 (≥1200px), estado vacío "No hay productos disponibles.".
+  - `src/app/page.tsx`: RSC `async` + `export const dynamic = "force-dynamic"`; `src/app/page.test.tsx` reescrito con `vi.mock` de `src/lib/catalog` (listado + estado vacío).
+  - `vitest.config.ts` (desviación del spec): alias `@/* → ./src/*` (Vitest no lee los `paths` de tsconfig) y `afterEach(cleanup)` explícito en los tests jsdom (Vitest sin `globals: true` no auto-limpia). Sin dependencias nuevas.
+- Verificación ejecutada y evidencia:
+  - `pnpm test` → exit 0; 5 archivos / 14 tests (nuevos: `catalog.test.ts` 3, `product-card.test.tsx` 1, `product-grid.test.tsx` 2, `page.test.tsx` 2).
+  - `pnpm lint` → exit 0; `pnpm typecheck` → exit 0.
+  - `pnpm build` → exit 0; `/` marcada Dynamic (ƒ) por `force-dynamic`.
+  - `./init.sh` → exit 0 (install + db:setup + lint + typecheck + test + build; sin dev servers; script sin cambios). Nota de entorno: en este sandbox Windows `bash`/`pnpm` no estaban en la ruta de Git Bash; se ejecutó con un wrapper temporal `.tmp-tools/pnpm` (eliminado después), sin tocar el repo.
+  - Smoke runtime: `pnpm dev` + `GET http://localhost:3000/` → HTTP 200 con h1 "Catálogo", "Camiseta básica", "Camisetas", "19,99" y las 8 imágenes de producto; servidor detenido.
+- Archivos o artefactos actualizados: `src/lib/{db,catalog,format}.ts`, `src/lib/catalog.test.ts`, `src/components/*`, `src/app/{globals.css,layout.tsx,page.tsx,page.test.tsx}`, `vitest.config.ts`, `ARCHITECTURE.md`, `CONSTRAINTS.md`, `docs/specs/catalog-list.md` (Implementation Findings), `feature_list.json`, `PROGRESS.md`.
+- Riesgo o cuestión no resuelta: ninguno bloqueante; `404 /favicon.ico` (preexistente) es cosmético y queda fuera de alcance.
+- Validación independiente (`feature-validator`, 2026-10-06): veredicto `accept`.
+  - Reverificó `pnpm lint`/`pnpm typecheck`/`pnpm test` (5 archivos / 14 tests) y `./init.sh` (exit 0).
+  - Verificación visual en navegador real (Chrome 154 vía DevTools Protocol; el MCP `chrome-devtools` no estaba expuesto en el runtime del validator): h1 "Catálogo", 8 cards con `img[alt=nombre]`/nombre/categoría/precio en €, orden `createdAt` desc; grid **4 columnas** a 1280×800 y **2 columnas** a 375×667; sin 404 de `/images/products/*.svg`. Capturas: `docs/evidence/catalog-list-desktop-1280.png`, `docs/evidence/catalog-list-mobile-375.png`.
+  - Alcance, arquitectura y documentación durables conformes; desviación de `vitest.config.ts` (alias `@` + cleanup explícito) juzgada justificada y en alcance. Hallazgos Low/Informativos no bloqueantes.
+- Estado: feature `catalog-list` en `accepted` (validación independiente: `accept`).
+- Siguiente mejor paso: feature `catalog-filter` (prerequisito `catalog-list` en `accepted`); requiere rol `planner`.

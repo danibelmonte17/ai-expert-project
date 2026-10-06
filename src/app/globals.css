@@ -1,0 +1,46 @@
+/**
+ * Estilos base y tokens de DESIGN.md (catalog-list).
+ *
+ * Convencion de estilos del proyecto: CSS Modules por componente + estos tokens
+ * globales. Sin Tailwind ni librerias de estilos (ver CONSTRAINTS.md).
+ */
+:root {
+  --color-primary: #111827;
+  --color-secondary: #4b5563;
+  --color-accent: #d97706;
+  --color-background: #ffffff;
+  --color-surface: #f3f4f6;
+  --color-text: #111827;
+  --color-text-muted: #6b7280;
+  --color-success: #16a34a;
+  --color-danger: #dc2626;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text);
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
