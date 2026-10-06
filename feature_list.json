@@ -54,14 +54,25 @@
     "title": "Configuración del proveedor de IA por entorno",
     "user_visible_behavior": "El proveedor/modelo de IA se configura por variables de entorno y sin clave la app degrada con un mensaje claro.",
     "depends_on": ["bootstrap-stack"],
-    "status": "not_started",
+    "status": "accepted",
     "verification": [
       "La ruta de proveedor/modelo es configurable por env (no cableada).",
       "Existen .env y .env.example con DEVEXPERT_API_KEY.",
       "Sin clave, las funciones de IA devuelven un mensaje de degradación controlado (sin romper)."
     ],
-    "evidence": [],
-    "notes": "DevExpert Inference (https://inference.devexpert.io/v1), clave DEVEXPERT_API_KEY, cliente OpenAI-compatible. Manejo de límite semanal (429) en technical-discovery.md."
+    "evidence": [
+      "Implementación: src/lib/ai/config.ts (getAiConfig/isAiConfigured + AI_DEFAULTS; lectura en runtime, vacío/espacios = no definido), src/lib/ai/client.ts (createAiClient, única puerta al SDK openai), src/lib/ai/errors.ts (AiResult/AiErrorCode/AI_MESSAGES/normalizeAiError), src/lib/ai/index.ts (getAiStatus/chatCompletion/imageEdit + re-exports), src/app/api/ai/status/route.ts (GET → Response.json(getAiStatus(), 200)).",
+      "Tests: src/lib/ai/config.test.ts (5), src/lib/ai/ai.test.ts (10, SDK openai mockeado con vi.mock, sin red), src/app/api/ai/status/route.test.ts (2, handler invocado directamente). pnpm test → exit 0; 8 archivos / 31 tests (17 nuevos). Cubren scenarios 1-6: defaults documentados; override por AI_BASE_URL/AI_CHAT_MODEL/AI_IMAGE_EDIT_MODEL/AI_EMBEDDING_MODEL; clave vacía/solo espacios = no configurado; degradación sin clave (ai_disabled + AI_MESSAGES.disabled, sin throw ni llamada al SDK); wiring createAiClient con apiKey+baseURL de env; 429 → ai_quota; route 200 {configured:false} sin clave y {configured:true} con clave.",
+      "pnpm add openai → openai 7.28.0 en dependencies; pnpm-lock.yaml actualizado.",
+      "pnpm lint → exit 0; pnpm typecheck → exit 0; pnpm build → exit 0; ruta /api/ai/status marcada Dynamic (ƒ) → lee env en runtime (no congela configured en build).",
+      "./init.sh → exit 0 sin DEVEXPERT_API_KEY (ejecutado vía Git Bash: install --frozen-lockfile + db:setup + lint + typecheck + test + build; script sin cambios; sin dev servers).",
+      "Smoke runtime (pnpm dev, PORT 3003): sin clave → GET http://localhost:3003/api/ai/status → HTTP 200, body {\"configured\":false,\"message\":\"Las funciones de IA no están disponibles porque falta la clave DEVEXPERT_API_KEY. Añádela en .env para activar el chatbot y la prueba virtual.\"}; con DEVEXPERT_API_KEY=sk-test-dummy-not-a-real-key → HTTP 200, body {\"configured\":true,\"message\":\"\"} (configured = hay clave; no se llamó al gateway). Servidor detenido y puerto 3003 libre.",
+      ".env.example documenta DEVEXPERT_API_KEY y (comentadas con defaults) AI_BASE_URL, AI_CHAT_MODEL, AI_IMAGE_EDIT_MODEL, AI_EMBEDDING_MODEL; .env ignorado por git (git check-ignore .env OK); ningún secreto commiteado.",
+      "Docs durables: ARCHITECTURE.md (capa Acceso a IA + API routes + dependencia src/app → src/lib/ai → SDK openai → gateway DevExpert + decisión de degradación/429), CONSTRAINTS.md (MUST env-only AI_*/DEVEXPERT_API_KEY, SDK openai solo en client.ts, IA nunca lanza sin clave, tests sin red; MUST NOT filtrar claves/detalles crudos), docs/technical-discovery.md (variables AI_* concretadas).",
+      "Pendiente para el validator: no aplica verificación visual con Chrome DevTools MCP (sin UI); la verificación observable es el JSON de GET /api/ai/status (ya transcrito) y los tests. No se realizan llamadas reales al gateway en la verificación.",
+      "Validación independiente (`feature-validator`, 2026-10-06): veredicto `accept`. Reverificó con DEVEXPERT_API_KEY desactivada: pnpm lint/typecheck exit 0, pnpm test 8 archivos/31 tests (17 nuevos), pnpm build exit 0 (/api/ai/status Dynamic ƒ), ./init.sh exit 0 keyless; probes en vivo sin clave (200 {configured:false, mensaje de degradación}) y con clave ficticia (200 {configured:true}); sin llamadas reales al gateway ni gasto de cupo. Confirmó scope (sin UI/chatbot/tryon/E2E, init.sh intacto), patrón puerta única del SDK openai en client.ts, provider/modelo env-driven sin hardcode fuera de AI_DEFAULTS, y que las funciones de IA nunca lanzan sin clave. Docs durables y evidencia `feature_list.json`/`PROGRESS.md` conformes. Hallazgos Low informativos (message vacío cuando configured; sin guard server-only; warning preexistente de múltiples lockfiles), no bloqueantes."
+    ],
+    "notes": "DevExpert Inference (https://inference.devexpert.io/v1), clave DEVEXPERT_API_KEY, cliente OpenAI-compatible (SDK oficial openai 7.28.0). Defaults centralizados en src/lib/ai/config.ts (AI_BASE_URL, AI_CHAT_MODEL=chat, AI_IMAGE_EDIT_MODEL=image-edit, AI_EMBEDDING_MODEL=embedding) y documentados en .env.example. Degradación sin clave sin red ni excepción (AiResult + AI_MESSAGES). 429 → ai_quota. imageEdit es solo transporte + normalización (sin prompt de prenda ni persistencia); el contrato de entrada/salida queda fijado para tryon-result. Manejo de límite semanal (429) en technical-discovery.md. Sin verificación de clave contra el gateway (no se gasta cupo)."
   },
   {
     "id": "catalog-list",

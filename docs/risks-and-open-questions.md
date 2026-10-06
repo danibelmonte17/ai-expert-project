@@ -32,7 +32,7 @@
 ## Risks
 
 - **Try-on realista** (alto): resultado poco fiel o rechazo del endpoint de edición de imagen; mitigar con proveedor/modelo configurable y expectativas acotadas.
-- **Cupo semanal de IA**: uso limitado por clave y por semana; peticiones rechazadas al 100%. Mitigar con modos sin clave, mensajes claros y evitando abusos.
+- **Cupo semanal de IA**: uso limitado por clave y por semana; peticiones rechazadas al 100%. Mitigar con modos sin clave, mensajes claros y evitando abusos. **Mitigación parcial (`ai-provider-config`)**: el 429 del gateway se centraliza/normaliza como `ai_quota` con mensaje controlado (`AI_MESSAGES.quota`) en `src/lib/ai`; el render del copy en pantalla llega con `chatbot-conversation`/`tryon-*` (sin reintentos ni backoff en esta capa).
 - **Privacidad**: la foto del usuario viaja a `inference.devexpert.io`; mitigar con aviso y no persistirla innecesariamente.
 - **Alcance del MVP amplio** (7 features): riesgo de sobrecarga; priorizar el slice de compra y dejar IA como incremento.
 - **Dependencia de red** para IA: sin red, chatbot/try-on no funcionan; degradar con claridad.

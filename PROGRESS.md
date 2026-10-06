@@ -6,9 +6,9 @@
 - Ruta estándar de arranque: `./init.sh`
 - Ruta estándar de verificación: `./init.sh` (gate: install + db:setup + lint + typecheck + test + build; asegura `.env`; no bloqueante, sin dev servers)
 - Arranque local: `pnpm dev`
-- Siguiente paso: `catalog-filter` (prerequisito `catalog-list` en `accepted`); requiere rol `planner`.
+- Siguiente paso: `catalog-filter` (prerequisito `catalog-list` en `accepted`) o `chatbot-conversation` (prerequisito `ai-provider-config` en `accepted`); requiere rol `planner`.
 - Bloqueador actual: ninguno
-- Última verificación: `./init.sh` en verde (exit 0) durante la validación independiente de `catalog-list` (`accept`), 2026-10-06
+- Última verificación: `./init.sh` en verde (exit 0, sin `DEVEXPERT_API_KEY`) durante la validación independiente de `ai-provider-config` (`accept`), 2026-10-06
 
 ## Registro de sesión
 
@@ -101,3 +101,28 @@
   - Alcance, arquitectura y documentación durables conformes; desviación de `vitest.config.ts` (alias `@` + cleanup explícito) juzgada justificada y en alcance. Hallazgos Low/Informativos no bloqueantes.
 - Estado: feature `catalog-list` en `accepted` (validación independiente: `accept`).
 - Siguiente mejor paso: feature `catalog-filter` (prerequisito `catalog-list` en `accepted`); requiere rol `planner`.
+
+### Sesión 005 — `ai-provider-config`
+
+- Fecha: 2026-10-06
+- Objetivo: dejar la integración de IA gobernada por variables de entorno con degradación controlada: capa `src/lib/ai` (config env-driven + cliente OpenAI-compatible como única puerta al SDK + contrato `AiResult`/`AI_MESSAGES` + `normalizeAiError`), funciones `getAiStatus`/`chatCompletion`/`imageEdit` y sonda observable `GET /api/ai/status`; sin chatbot, try-on, prompts de dominio, UI ni cambios de esquema/gate.
+- Completado:
+  - `src/lib/ai/config.ts`: `getAiConfig()`/`isAiConfigured()` + `AI_DEFAULTS`; lectura en runtime de `DEVEXPERT_API_KEY`, `AI_BASE_URL`, `AI_CHAT_MODEL`, `AI_IMAGE_EDIT_MODEL`, `AI_EMBEDDING_MODEL`; vacío/solo espacios = no definido.
+  - `src/lib/ai/client.ts`: `createAiClient(config = getAiConfig())` → `new OpenAI({ apiKey, baseURL })`; única puerta al SDK (al estilo de `db.ts` con Prisma).
+  - `src/lib/ai/errors.ts`: `AiResult<T>`, `AiErrorCode`, `AiError`, `AI_MESSAGES` (disabled/quota/error en español) y `normalizeAiError` (429 → `ai_quota`; resto → `ai_error` genérico, sin filtrar clave ni detalle).
+  - `src/lib/ai/index.ts`: `getAiStatus()`, `chatCompletion({ messages, model?, client? })`, `imageEdit({ image, prompt, model?, client? })` (transporte + normalización, sin prompts de dominio ni persistencia), con degradación `ai_disabled` sin clave y sin red.
+  - `src/app/api/ai/status/route.ts`: `GET` → `Response.json(getAiStatus(), { status: 200 })` **siempre 200**.
+  - Dependencia `openai` 7.28.0 en `dependencies` (lockfile actualizado); `.env.example` ampliado con las 4 variables `AI_*` comentadas + defaults y recordatorio de no commitear la clave.
+  - Tests: `src/lib/ai/config.test.ts` (5, node), `src/lib/ai/ai.test.ts` (10, node, `vi.mock("openai")`), `src/app/api/ai/status/route.test.ts` (2, node).
+- Verificación ejecutada y evidencia:
+  - `pnpm test` → exit 0; 8 archivos / 31 tests (17 nuevos). Cubre scenarios 1-6 del spec.
+  - `pnpm lint` → exit 0; `pnpm typecheck` → exit 0.
+  - `pnpm build` → exit 0; `/api/ai/status` marcada Dynamic (ƒ) → lee env en runtime.
+  - `./init.sh` → exit 0 **sin** `DEVEXPERT_API_KEY` (install --frozen-lockfile + db:setup + lint + typecheck + test + build; script sin cambios; sin dev servers). Entorno: se detectó Git Bash en `C:\Program Files\Git\bin\bash.exe` con node/pnpm en PATH; no hizo falta wrapper temporal.
+  - Smoke runtime (`pnpm dev`, PORT 3003): sin clave → `GET /api/ai/status` HTTP 200 `{"configured":false,"message":"Las funciones de IA no están disponibles porque falta la clave DEVEXPERT_API_KEY. Añádela en .env para activar el chatbot y la prueba virtual."}`; con `DEVEXPERT_API_KEY=sk-test-dummy-not-a-real-key` → HTTP 200 `{"configured":true,"message":""}` (no se llamó al gateway). Servidor detenido; puerto 3003 libre.
+  - `.env` sigue ignorado por git (`git check-ignore .env` OK); ningún secreto commiteado.
+- Archivos o artefactos actualizados: `src/lib/ai/{config,client,errors,index}.ts` + tests, `src/app/api/ai/status/route.ts` + test, `package.json`, `pnpm-lock.yaml`, `.env.example`, `ARCHITECTURE.md`, `CONSTRAINTS.md`, `docs/technical-discovery.md`, `docs/risks-and-open-questions.md`, `feature_list.json`, `PROGRESS.md`.
+- Riesgo o cuestión no resuelta: shapes reales del gateway sin probar (requiere clave real y gastaría cupo; se asume OpenAI estricto). `imageEdit()` fija el contrato; si `images.edit` del SDK no encaja con el multipart del gateway, `tryon-result` podrá usar `fetch` con el mismo `AiResult`. `getAiStatus().message` es cadena vacía cuando hay clave (sonda; el copy de "listo" no se especificó).
+- Validación independiente (`feature-validator`, 2026-10-06): veredicto `accept`. Reverificó con `DEVEXPERT_API_KEY` desactivada `pnpm lint`/`typecheck`/`test` (8 archivos/31 tests)/`build` (exit 0, /api/ai/status Dynamic) y `./init.sh` (exit 0); probes en vivo sin clave (200 `{configured:false, mensaje de degradación}`) y con clave ficticia (200 `{configured:true}`), sin llamadas reales al gateway ni gasto de cupo. Scope (sin UI/chatbot/tryon/E2E, init.sh intacto), puerta única del SDK y env-driven sin hardcode conformes. Hallazgos Low informativos (message vacío cuando configured; sin guard server-only; warning preexistente de múltiples lockfiles), no bloqueantes.
+- Estado: feature `ai-provider-config` en `accepted` (validación independiente: `accept`).
+- Siguiente mejor paso: feature `catalog-filter` (prerequisito `catalog-list` en `accepted`) o `chatbot-conversation` (prerequisito `ai-provider-config` en `accepted`); requiere rol `planner`.

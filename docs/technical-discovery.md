@@ -23,6 +23,7 @@ Toda la IA se sirve desde **DevExpert Inference**, un gateway compatible con Ope
 
 - **URL base**: `https://inference.devexpert.io/v1`.
 - **Clave**: variable de entorno `DEVEXPERT_API_KEY` (no commitear; usar `.env` y `.env.example`). Sin clave, las funciones de IA degradan con un mensaje claro.
+- **Configuración por env (decidido en `ai-provider-config`)**: `AI_BASE_URL` (default `https://inference.devexpert.io/v1`), `AI_CHAT_MODEL` (default `chat`), `AI_IMAGE_EDIT_MODEL` (default `image-edit`) y `AI_EMBEDDING_MODEL` (default `embedding`). Los defaults viven en `src/lib/ai/config.ts` y se documentan (comentados) en `.env.example`; un `.env` sin `AI_*` sigue funcionando. Sin `DEVEXPERT_API_KEY`, `getAiStatus()`/`chatCompletion()`/`imageEdit()` devuelven un `AiResult` degradado (`ai_disabled`, copy `AI_MESSAGES`) sin llamada de red.
 - **Compatibilidad**: al ser OpenAI-compatible, funciona con el cliente oficial `openai` (SDK TypeScript/Python) solo cambiando `apiKey` y `baseURL`.
 - **Límites**: cada clave tiene un uso semanal que se repone solo; al llegar al 100% las peticiones se rechazan hasta el reseteo. La app debe manejar el error 429/uso y mostrarlo con claridad.
 
