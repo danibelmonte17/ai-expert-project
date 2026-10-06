@@ -14,6 +14,9 @@ Reglas durables que las features futuras deben respetar.
 - **El seed debe cargar `.env` explícitamente en runtime** (p. ej. `process.loadEnvFile`). Razón: `@prisma/client` no resuelve `.env` de forma fiable cuando el cliente se genera antes de existir `.env` (caso del checkout limpio).
 - **`./init.sh` no debe arrancar dev servers** ni procesos de larga vida; solo ejecuta el gate de verificación (install + db:setup + lint + typecheck + test + build) de forma no bloqueante. Razón: dejar el repo limpio para la siguiente sesión.
 - **Mantener el gate de calidad** (`pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`) y la preparación de datos (`pnpm db:setup`) ejecutándose desde `./init.sh`. Razón: verificación reproducible de la base.
+- **Acceder a Prisma solo desde `src/lib/db`** (singleton `globalThis`); las consultas de datos viven en `src/lib/*` y las páginas/componentes de `src/` no instancian `PrismaClient` ni importan `@prisma/client` directamente. El CLI del seed (`prisma/seed.ts`) queda fuera de `src/` y usa su propio cliente. Razón: una única puerta a la base, testeable por inyección y sin fugas de conexiones.
+- **Formatear el dinero en UI siempre con `formatPrice`** (`src/lib/format.ts`), a partir de centavos; nunca concatenar `priceCents`/`totalCents` a mano ni dividir por 100 en la vista. Razón: formato `es-ES` consistente (p. ej. "19,99 €") y una sola política de presentación monetaria.
+- **Estilar con CSS Modules (`*.module.css`) y los tokens de `DESIGN.md`** expuestos en `src/app/globals.css`. Prohibido añadir Tailwind u otra librería de estilos, o colores/espaciados hardcodeados fuera de los tokens. Razón: convención única de estilos y fidelidad a la dirección visual.
 
 ## MUST NOT
 
