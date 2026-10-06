@@ -17,9 +17,14 @@ Reglas durables que las features futuras deben respetar.
 - **Acceder a Prisma solo desde `src/lib/db`** (singleton `globalThis`); las consultas de datos viven en `src/lib/*` y las páginas/componentes de `src/` no instancian `PrismaClient` ni importan `@prisma/client` directamente. El CLI del seed (`prisma/seed.ts`) queda fuera de `src/` y usa su propio cliente. Razón: una única puerta a la base, testeable por inyección y sin fugas de conexiones.
 - **Formatear el dinero en UI siempre con `formatPrice`** (`src/lib/format.ts`), a partir de centavos; nunca concatenar `priceCents`/`totalCents` a mano ni dividir por 100 en la vista. Razón: formato `es-ES` consistente (p. ej. "19,99 €") y una sola política de presentación monetaria.
 - **Estilar con CSS Modules (`*.module.css`) y los tokens de `DESIGN.md`** expuestos en `src/app/globals.css`. Prohibido añadir Tailwind u otra librería de estilos, o colores/espaciados hardcodeados fuera de los tokens. Razón: convención única de estilos y fidelidad a la dirección visual.
+- **Leer proveedor y modelos de IA solo desde `src/lib/ai/config`** (`loadAiConfig`): URL base y modelos (`chat`, `chat-pro`, `image-edit`) se configuran por variables de entorno y nunca se cablean en los puntos de llamada. Razón: la ruta de proveedor/modelo debe ser configurable (cualquier gateway OpenAI-compatible solo cambiando env).
+- **Devolver `AiResult` con los mensajes canónicos** (`src/lib/ai/result.ts`) para los fallos conocidos de IA: las funciones no lanzan excepciones para `missing_api_key`, `quota_exhausted` (429) ni `provider_error` (red/5xx). Razón: las UIs de `chatbot-*`/`tryon-*` muestran el mensaje tal cual y la app no se rompe.
+- **Mantener `DEVEXPERT_API_KEY` solo en servidor**: `src/lib/ai` se consume desde RSC / route handlers / server actions; nunca se importa desde componentes cliente ni se incluye la clave (ni fragmentos) en UI, bundle, mensajes o logs. Razón: seguridad de la clave personal del estudiante.
+- **Llamar al gateway de IA solo desde `src/lib/ai/client`** (única puerta, SDK `openai`); ninguna otra capa de `src/` llama al gateway directamente. Razón: un único punto de config, manejo de errores y testeo por inyección.
 
 ## MUST NOT
 
 - **No commitear claves/secrets** (p. ej. `DEVEXPERT_API_KEY`) ni el archivo `.env`. Las claves van en `.env` (ignorado) y se documentan en `.env.example` (commiteado). Razón: seguridad y formación AI Expert (clave personal).
 - **No cambiar el esquema sin migración commiteada** ni editar la base a mano. Razón: el esquema es reproducible desde `prisma/migrations/`.
 - **No añadir despliegue cloud ni CI remoto** en el MVP; solo scripts locales. Razón: non-goal del slice.
+- **No llamar al gateway de IA fuera de `src/lib/ai/client`** ni hardcodear su URL/modelos en puntos de llamada. Razón: una sola puerta con config por env, contrato de errores y tests sin red.

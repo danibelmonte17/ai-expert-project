@@ -32,10 +32,10 @@
 ## Risks
 
 - **Try-on realista** (alto): resultado poco fiel o rechazo del endpoint de edición de imagen; mitigar con proveedor/modelo configurable y expectativas acotadas.
-- **Cupo semanal de IA**: uso limitado por clave y por semana; peticiones rechazadas al 100%. Mitigar con modos sin clave, mensajes claros y evitando abusos.
+- **Cupo semanal de IA**: uso limitado por clave y por semana; peticiones rechazadas al 100%. Mitigar con modos sin clave, mensajes claros y evitando abusos. **Mitigación parcial (`ai-provider-config`)**: ya existe a nivel de lib (`src/lib/ai`): sin clave → `missing_api_key` sin red, 429 → `quota_exhausted`, red/5xx → `provider_error`, siempre con mensajes canónicos en español (`AiResult`). Pendiente: su superficie UI en `chatbot-*`/`tryon-*`.
 - **Privacidad**: la foto del usuario viaja a `inference.devexpert.io`; mitigar con aviso y no persistirla innecesariamente.
 - **Alcance del MVP amplio** (7 features): riesgo de sobrecarga; priorizar el slice de compra y dejar IA como incremento.
-- **Dependencia de red** para IA: sin red, chatbot/try-on no funcionan; degradar con claridad.
+- **Dependencia de red** para IA: sin red, chatbot/try-on no funcionan; degradar con claridad. **Mitigación parcial (`ai-provider-config`)**: los fallos de red se mapean a `provider_error` con mensaje claro y sin lanzar excepción.
 
 ## Research Tasks
 
