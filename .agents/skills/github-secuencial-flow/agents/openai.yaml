@@ -1,0 +1,4 @@
+interface:
+  display_name: "GitHub Secuencial Flow"
+  short_description: "Run features one after another with worktrees and PRs."
+  default_prompt: "Use $github-secuencial-flow with these feature ids: <ids>."
