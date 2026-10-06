@@ -36,6 +36,7 @@ yarn-error.log*
 
 # git worktrees
 /.worktree/
+/.worktrees/
 
 # prisma / sqlite
 prisma/dev.db

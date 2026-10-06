@@ -1,19 +1,19 @@
 ---
 name: github-secuencial-flow
-description: Orquesta features en serie con git y GitHub (gh) reutilizando feature-flow. Usa la misma base para toda la tanda, verifica que las features no dependan entre sí, lanza una sesión opencode run --dir por feature de forma bloqueante (una detrás de otra) y solo publica (push + PR) cuando la feature queda accepted. Use when the user asks for sequential github flow, en serie, una detrás de otra, secuencial, or $github-secuencial-flow.
+description: Orquesta features en serie con git y GitHub (gh) reutilizando feature-flow. Usa la misma base para toda la tanda, verifica que las features no dependan entre sí, ejecuta el flujo de cada feature en la sesión actual (delegando en los subagentes planner/implementer/validator sobre su worktree, sin lanzar una segunda sesión ni `opencode run`) y solo publica (push + PR) cuando la feature queda accepted. Use when the user asks for sequential github flow, en serie, una detrás de otra, secuencial, or $github-secuencial-flow.
 ---
 
 # GitHub Secuencial Flow
 
-Orquesta el ciclo completo de una o varias features combinando `git`, GitHub (`gh`) y el flujo de `$feature-flow`, ejecutándolas **en serie: una detrás de otra**. Cada feature corre en su propia rama, su propio worktree y su propia sesión, pero las sesiones **nunca se lanzan en paralelo**: cada `opencode run` es bloqueante y la siguiente feature no empieza hasta que la anterior termina y su estado queda revisado.
+Orquesta el ciclo completo de una o varias features combinando `git`, GitHub (`gh`) y el flujo de `$feature-flow`, ejecutándolas **en serie: una detrás de otra**. Cada feature corre en su propia rama y su propio worktree (`.worktrees/<id>`), pero el flujo se ejecuta **dentro de la sesión actual**: la siguiente feature no empieza hasta que la anterior termina, se revisa y, si procede, se publica. **Nunca** se lanza una segunda sesión ni `opencode run`.
 
-Este documento es el orquestador de nivel superior. No reimplementa el flujo de los subagentes `planner` → `implementer` → `validator` (invocados por su nombre exacto): lo delega a `$feature-flow` dentro de cada sesión independiente.
+Este documento es el orquestador de nivel superior. No reimplementa el flujo de los subagentes `planner` → `implementer` → `validator` (invocados por su nombre exacto): lo delega lanzando esos subagentes con la herramienta Task, apuntándolos al worktree de la feature (ver "Ejecución en la sesión actual").
 
 ## Reglas duras
 
-- Una feature por rama, por worktree y por sesión. Nunca dos features en la misma sesión.
-- Ejecución estrictamente secuencial. Prohibido lanzar sesiones en paralelo o en background; cada sesión es bloqueante.
-- Toda sesión de feature arranca con `opencode run --dir <worktree>` y su prompt manda usar `$feature-flow` para el id seleccionado.
+- Una feature por rama, por worktree y por delegación. Nunca dos features a la vez ni dos features en el mismo handoff.
+- Ejecución estrictamente secuencial. Prohibido lanzar procesos o sesiones en paralelo o en background; cada feature se completa (o queda bloqueada) antes de empezar la siguiente.
+- Sin segunda sesión. Prohibido `opencode run` y cualquier subproceso que abra otra sesión; el flujo corre **en la sesión actual** delegando en los subagentes `planner` → `implementer` → `validator`.
 - Misma base para toda la tanda. Todas las features parten del mismo `BASE_SHA` capturado una vez en el preflight para que las PR sean comparables.
 - Tanda independiente. Ninguna feature de la tanda puede depender de otra feature de la misma tanda (ver "Preflight"); si lo hace, se excluye y se reporta.
 - Sin aceptación no hay publicación. Solo se hace push y PR cuando `feature_list.json` marca la feature como `accepted` y existe evidencia de validación independiente.
@@ -43,7 +43,7 @@ Este documento es el orquestador de nivel superior. No reimplementa el flujo de 
 
 ## Preflight (antes de ejecutar)
 
-Ejecutar y verificar todo esto antes de lanzar cualquier sesión. Si falla la base, los permisos o la resolución de la rama, parar y reportar el bloqueo; no improvisar. Si falla una feature concreta (dependencias), excluirla y seguir con el resto.
+Ejecutar y verificar todo esto antes de ejecutar cualquier feature. Si falla la base, los permisos o la resolución de la rama, parar y reportar el bloqueo; no improvisar. Si falla una feature concreta (dependencias), excluirla y seguir con el resto.
 
 1. Confirmar el directorio y la raíz del repositorio:
    - `pwd`
@@ -94,25 +94,49 @@ Para cada feature `<id>`:
 
 ## Bucle secuencial con feature-flow
 
-Procesar las features **una detrás de otra, en el orden del plan**. No empezar la siguiente hasta terminar y revisar la actual:
+Procesar las features **una detrás de otra, en el orden del plan**. No empezar la siguiente hasta terminar, revisar y, si procede, publicar la actual:
 
 ```
 para cada <id> (i/N) en orden:
   1. issue -> worktree/rama -> env (según "Worktree y entorno")
-  2. opencode run --dir .worktrees/<id> "Usa $feature-flow para la feature <id>. Trabaja solo esa feature hasta aceptación. No hagas push ni PR." (bloqueante, esperar exit)
+  2. ejecutar el flujo de la feature EN LA SESIÓN ACTUAL (según "Ejecución en la sesión actual")
   3. revisar estado en el worktree (feature_list.json, git log, git status)
   4. publicar solo si accepted (según "Publicación")
   5. limpieza del worktree (según "Limpieza al terminar")
   6. seguir con la siguiente aunque esta quedara blocked/no-accepted
 ```
 
-Reglas de la sesión:
+## Ejecución en la sesión actual (sin segunda sesión)
 
-- El prompt debe pedir explícitamente `$feature-flow` para el `<id>` seleccionado y nada más.
-- La sesión corre en modo until-accepted (subagentes `planner` → `implementer` → `validator`, invocados por su nombre exacto), y `$feature-flow` se encarga del commit de aceptación.
-- Nunca lanzar dos features en la misma sesión ni compartir contexto entre sesiones.
-- No publicar desde la sesión de feature: el push y la PR los decide y ejecuta el orquestador tras confirmar `accepted` y tener permiso.
-- Al terminar cada sesión, el orquestador revisa el estado en el worktree (`feature_list.json`, `git log`, `git status`) antes de publicar y antes de pasar a la siguiente.
+El flujo `planner` → `implementer` → `validator` de cada feature se ejecuta **en esta misma sesión**, delegando en los subagentes configurados. **No** lanzar `opencode run`, ni un shell nuevo de opencode, ni ningún subproceso que abra otra sesión.
+
+Para cada feature `<id>`:
+
+1. La sesión orquestadora es la única que corre. Asume el rol de orquestador de `$feature-flow` (léelo si hace falta) y ejecuta las tres fases dentro del worktree.
+2. Invoca los subagentes por su nombre exacto con la herramienta Task, `subagent_type` = `planner` / `implementer` / `validator` (nunca `general`, `explore`, `plan` o `build`). No pases overrides de `model`, `variant`, `temperature` ni `top_p`.
+3. Cada handoff a un subagente debe incluir únicamente contexto dinámico:
+   - **ruta absoluta del worktree** (`<repo>/.worktrees/<id>`), declarada como directorio de trabajo de la feature,
+   - feature id,
+   - rol seleccionado,
+   - ruta del spec cuando aplique (`<worktree>/docs/specs/<id>.md`),
+   - repair brief del validator cuando aplique,
+   - resumen de salida esperada.
+4. El prompt del handoff debe dejar explícito que **todo** el trabajo del subagente ocurre dentro del worktree: resolver rutas relativas contra `<worktree>`, editar ficheros con rutas absolutas bajo `<worktree>`, y ejecutar comandos con el worktree como directorio de trabajo (`workdir` del shell o `git -C .worktrees/<id>`). El checkout principal y la rama base no se tocan.
+5. Secuencia por feature (until-accepted, el orquestador nunca implementa mientras un subagente es dueño del rol):
+   - `planner`: si `docs/specs/<id>.md` falta o está desactualizado → genera/actualiza el spec.
+   - `implementer`: implementa y autoverifica hasta `passing`.
+   - `validator`: validación independiente → `accept` / `revise` / `block`.
+   - Si el veredicto es `revise`: vuelve al `implementer` con el repair brief y repite `validator`.
+   - Si el veredicto es `block`: para y reporta el bloqueo, y continúa con la siguiente feature de la tanda.
+6. Tras cada fase, el orquestador revisa el artefacto en el worktree (`feature_list.json`, `git log`, `git status`, evidencia del spec/validación) antes de continuar.
+7. Al llegar a `accept`, el orquestador (no los subagentes) actualiza `feature_list.json` a `accepted` y crea el commit de aceptación **dentro del worktree**.
+8. No publicar desde los subagentes: el push y la PR los decide y ejecuta el orquestador tras confirmar `accepted` y tener permiso.
+
+Reglas de la delegación:
+
+- Una feature por worktree y por delegación; nunca dos features en el mismo handoff ni compartir contexto entre features.
+- El orquestador no duplica el trabajo del subagente salvo fallo claro o petición del usuario.
+- El commit de aceptación lo hace siempre el orquestador tras el veredicto `accept`.
 
 ## Publicación (solo feature accepted)
 
@@ -145,7 +169,7 @@ Pasos:
 - Worktree: reutilizar si existe (`git worktree list`); no duplicar ni borrar.
 - Rama: reutilizar `feat/<id>` si existe.
 - PR: reutilizar si ya hay una PR para `feat/<id>` contra `<base>`.
-- Si una feature ya está `accepted` y publicada, no relanzar la sesión ni duplicar PR: reportar el estado actual.
+- Si una feature ya está `accepted` y publicada, no volver a ejecutar su flujo ni duplicar PR: reportar el estado actual.
 
 ## Issue por feature
 
