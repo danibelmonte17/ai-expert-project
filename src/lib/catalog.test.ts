@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { seedCatalog } from "../../prisma/seed";
-import { listCatalogProducts } from "./catalog";
+import { getProductDetailBySlug, listCatalogProducts } from "./catalog";
 
 /**
  * Test de integracion del listado de catalogo (catalog-list).
@@ -83,5 +83,45 @@ describe("listCatalogProducts", () => {
     const basica = products.find((product) => product.slug === "camiseta-basica");
 
     expect(basica?.categoryName).toBe("Camisetas");
+  });
+});
+
+describe("getProductDetailBySlug", () => {
+  it("devuelve la ficha de camiseta-basica con sus campos y 4 variantes", async () => {
+    const product = await getProductDetailBySlug("camiseta-basica", prisma);
+
+    expect(product).not.toBeNull();
+    expect(product?.name).toBe("Camiseta básica");
+    expect(product?.description).toBe(
+      "Camiseta de algodón de corte recto, cómoda para el día a día.",
+    );
+    expect(product?.categoryName).toBe("Camisetas");
+    expect(product?.priceCents).toBe(1999);
+    expect(product?.currency).toBe("EUR");
+    expect(product?.imageUrl).toBe("/images/products/camiseta-basica.svg");
+    expect(product?.variants).toHaveLength(4);
+
+    const variante = product?.variants.find(
+      (variant) => variant.sku === "camiseta-basica-S-negro",
+    );
+    expect(variante).toMatchObject({
+      size: "S",
+      color: "negro",
+      stock: 12,
+      priceCents: 1999,
+    });
+  });
+
+  it("incluye la variante agotada de camiseta-estampada (S/negro, stock 0)", async () => {
+    const product = await getProductDetailBySlug("camiseta-estampada", prisma);
+
+    const agotada = product?.variants.find(
+      (variant) => variant.sku === "camiseta-estampada-S-negro",
+    );
+    expect(agotada).toMatchObject({ size: "S", color: "negro", stock: 0 });
+  });
+
+  it("devuelve null para un slug inexistente", async () => {
+    await expect(getProductDetailBySlug("no-existe", prisma)).resolves.toBeNull();
   });
 });

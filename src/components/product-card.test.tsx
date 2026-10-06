@@ -26,4 +26,11 @@ describe("ProductCard", () => {
     expect(screen.getByText("Camisetas")).toBeInTheDocument();
     expect(screen.getByText(/19,99/)).toBeInTheDocument();
   });
+
+  it("enlaza la tarjeta a la ficha del producto", () => {
+    render(<ProductCard product={product} />);
+
+    const link = screen.getByRole("link", { name: /Camiseta básica/ });
+    expect(link).toHaveAttribute("href", "/productos/camiseta-basica");
+  });
 });

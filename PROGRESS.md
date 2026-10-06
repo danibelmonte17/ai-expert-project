@@ -6,9 +6,9 @@
 - Ruta estándar de arranque: `./init.sh`
 - Ruta estándar de verificación: `./init.sh` (gate: install + db:setup + lint + typecheck + test + build; asegura `.env`; no bloqueante, sin dev servers)
 - Arranque local: `pnpm dev`
-- Siguiente paso: `catalog-filter` (prerequisito `catalog-list` en `accepted`); requiere rol `planner`.
+- Siguiente paso: `catalog-filter` (prerequisito `catalog-list` en `accepted`); requiere rol `planner`. (`catalog-sort` comparte prerequisito y también está listo.)
 - Bloqueador actual: ninguno
-- Última verificación: `./init.sh` en verde (exit 0) durante la validación independiente de `catalog-list` (`accept`), 2026-10-06
+- Última verificación: `./init.sh` en verde (exit 0) durante la validación independiente de `product-detail` (`accept`), 2026-10-06
 
 ## Registro de sesión
 
@@ -101,3 +101,29 @@
   - Alcance, arquitectura y documentación durables conformes; desviación de `vitest.config.ts` (alias `@` + cleanup explícito) juzgada justificada y en alcance. Hallazgos Low/Informativos no bloqueantes.
 - Estado: feature `catalog-list` en `accepted` (validación independiente: `accept`).
 - Siguiente mejor paso: feature `catalog-filter` (prerequisito `catalog-list` en `accepted`); requiere rol `planner`.
+
+### Sesión 005 — `product-detail`
+
+- Fecha: 2026-10-06
+- Objetivo: mostrar la ficha de cada producto en `/productos/[slug]` (imagen, descripción, categoría, precio) con un selector talla/color que resuelve la variante real de la matriz sparse y muestra su estado/stock (`Disponible`/`Agotada`), leyendo SQLite en runtime; enlazar las cards del catálogo y dejar el ancla de try-on y el CTA "Añadir al carrito" (solo estado).
+- Completado:
+  - `src/lib/variants.ts` (nuevo): helpers puros `variantState`, `resolveVariant`, `sizesIn`/`colorsIn` (orden canónico filtrado a presentes), `isSelectable`, `isSoldOutOption` y `nextSelection` (limpieza del otro eje); sin Prisma.
+  - `src/lib/catalog.ts`: DTOs `ProductVariant`/`CatalogProductDetail` + `getProductDetailBySlug(slug, prisma = db)` (`include` categoría + variantes, cliente inyectable; `null` si no existe).
+  - `src/components/variant-selector.tsx` (+ `.module.css`, + test): chips píldora controlados, `role="group"` + `aria-label` Talla/Color, `aria-pressed`, `disabled` en combinaciones inexistentes, marca de agotado (`data-sold-out`, `--color-danger`) pero seleccionable.
+  - `src/components/product-detail.tsx` (+ `.module.css`, + test): primer `"use client"` del repo; imagen (`alt`=nombre), `h1`, categoría, descripción, precio con `formatPrice` de la variante resuelta, badge de stock `aria-live` (`Disponible` verde / `Agotada` rojo), CTA "Añadir al carrito" `disabled` salvo variante válida en stock y sin handler, nota/CTA para producto sin variantes, layout 1 columna (móvil) / 2 columnas (≥768px) y ancla try-on comentada.
+  - `src/app/productos/[slug]/page.tsx` (+ test): RSC `async` + `force-dynamic` + `await params` (Next 15) + `notFound()` + `generateMetadata` (title = nombre).
+  - `src/components/product-card.tsx` (+ test): la card entera pasa a `Link` a `/productos/${slug}`.
+- Verificación ejecutada y evidencia:
+  - `pnpm test` → exit 0; **9 archivos / 44 tests** (nuevos: `variants.test.ts` 13, `catalog.test.ts` +3, `variant-selector.test.tsx` 5, `product-detail.test.tsx` 6, `page.test.tsx` 2, `product-card.test.tsx` +1). Confirmado que `src/app/productos/[slug]/page.test.tsx` SÍ se recoge → `vitest.config.ts` sin cambios.
+  - `pnpm lint` → exit 0; `pnpm typecheck` → exit 0.
+  - `pnpm build` → exit 0; `/productos/[slug]` como ruta dinámica (ƒ).
+  - `./init.sh` → exit 0 (install + db:setup + lint + typecheck + test + build; sin dev servers; script sin cambios). En este sandbox Windows se ejecutó con Git Bash (`C:\Program Files\Git\bin\bash.exe`); `bash` del PATH apunta al stub de WSL sin distro.
+  - Smoke runtime (`pnpm exec next dev -p 3100`, servidor detenido; el puerto 3000 lo ocupaba el worktree `catalog-filter`): `/productos/camiseta-basica` → HTTP 200 con "Camiseta básica", "Camisetas", "19,99", hint y grupos Talla/Color + CTA; `/` con card `href="/productos/camiseta-basica"`; `/productos/no-existe` → HTTP 404.
+- Archivos o artefactos actualizados: `src/lib/{variants.ts,variants.test.ts,catalog.ts,catalog.test.ts}`, `src/components/{variant-selector.tsx,variant-selector.module.css,variant-selector.test.tsx,product-detail.tsx,product-detail.module.css,product-detail.test.tsx,product-card.tsx,product-card.module.css,product-card.test.tsx}`, `src/app/productos/[slug]/{page.tsx,page.test.tsx}`, `ARCHITECTURE.md`, `docs/specs/product-detail.md` (Implementation Findings), `feature_list.json`, `PROGRESS.md`.
+- Desviación / hallazgo: el ejemplo de limpieza del Scenario 4 ("color blanco y después talla S") no es alcanzable por UI con el `disabled` simétrico de la regla 4a (el chip S queda `disabled`); se mantiene el `disabled` y la limpieza se extrae a `nextSelection` con test unitario, y el test de UI verifica las combinaciones inexistentes `disabled`. Registrado en `docs/specs/product-detail.md`. Sin cambios en `prisma/*`, `init.sh`, `package.json` ni `vitest.config.ts`.
+- Validación independiente (`feature-validator`, 2026-10-06): veredicto `accept` (registro en `docs/validations/product-detail.md`).
+  - Reverificó `pnpm lint`/`pnpm typecheck`/`pnpm test` (9 archivos / 44 tests), `pnpm build` (`/productos/[slug]` dinámica ƒ; `/_not-found` estática; `/` dinámica) y `./init.sh` (exit 0); smoke runtime `/productos/camiseta-basica` 200, `/` 200 (8 enlaces), `/productos/no-existe` 404.
+  - Verificación visual (MCP `chrome-devtools` no expuesto → fallback documentado: Chrome real headless vía DevTools Protocol, dev en puerto 3200): ficha con h1/categoría/descripción/"19,99 €"/Talla S,M,L,XL/Color negro,blanco,azul,rojo/hint/CTA `disabled`; S+negro → "Disponible · 12 en stock" + CTA habilitado; fijar S deshabilita blanco/azul/rojo (matriz sparse, sin variantes fantasma); `camiseta-estampada` S+negro → "Agotada" + CTA `disabled`; `/productos/no-existe` → 404. Capturas: `docs/evidence/product-detail-{desktop-1280,mobile-375,agotada-desktop-1280}.png`. Consola: solo `favicon.ico` (preexistente) y el 404 intencional; sin 404 de `/images/products/*.svg`.
+  - Checklist del spec: todos los ítems pasan. Hallazgos Low no bloqueantes (L1 tensión 4a/4c documentada; L2 favicon preexistente; I1 warning de lockfiles ambiental). Seguridad y arquitectura conformes (Prisma solo vía `src/lib/db`; `findUnique` parametrizado; sin secretos ni dependencias nuevas).
+- Estado: feature `product-detail` en `accepted` (validación independiente: `accept`).
+- Siguiente mejor paso: feature `catalog-filter` (prerequisito `catalog-list` en `accepted`); requiere rol `planner`. `catalog-sort` también está listo si se prefiere.
